@@ -3,7 +3,6 @@ require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const swaggerUi = require('swagger-ui-express');
-const authRouter = require('./routes/auth');
 const kbRouter = require('./routes/kb');
 const { requireAuth } = require('./middleware/auth');
 const { healthCheck } = require('./db');
@@ -12,11 +11,8 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const openapiPath = path.join(__dirname, '..', 'docs', 'openapi.yaml');
 
-if (!process.env.JWT_SECRET) {
-  console.warn('[auth] missing env JWT_SECRET');
-}
-if (!process.env.AUTH_USERNAME || !process.env.AUTH_PASSWORD) {
-  console.warn('[auth] missing env AUTH_USERNAME and/or AUTH_PASSWORD');
+if (!process.env.API_KEY) {
+  console.warn('[auth] missing env API_KEY');
 }
 
 app.use(express.json());
@@ -44,7 +40,6 @@ app.use(
   })
 );
 
-app.use('/api/auth', authRouter);
 app.use('/api/kb', requireAuth, kbRouter);
 
 app.use((_req, res) => {

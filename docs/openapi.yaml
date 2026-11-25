@@ -6,18 +6,16 @@ info:
     Lean Express API for hasil pelayanan KB (family planning service results)
     by NIK from Postgres MV `sigabaru.mv_bnba_akseptor_2026`.
 
-    Authenticate with `POST /api/auth/login`, then call `/api/kb/*` using
-    `Authorization: Bearer <accessToken>`. `GET /health` is public.
+    Call `/api/kb/*` with header `X-API-Key` matching env `API_KEY`.
+    `GET /health` and `GET /api/docs` are public.
 servers:
   - url: /
     description: Current host
 tags:
   - name: health
     description: Liveness / readiness
-  - name: auth
-    description: JWT login
   - name: kb
-    description: KB akseptor lookup (Bearer required)
+    description: KB akseptor lookup (X-API-Key required)
 paths:
   /health:
     get:
@@ -45,59 +43,6 @@ paths:
                 status: degraded
                 db: down
 
-  /api/auth/login:
-    post:
-      tags: [auth]
-      summary: Login and obtain JWT
-      description: |
-        Validates a single env-configured user (`AUTH_USERNAME` /
-        `AUTH_PASSWORD`). Returns an HS256 JWT. Default example username
-        is `mitra_bkkbn`.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-            example:
-              username: mitra_bkkbn
-              password: '***'
-      responses:
-        '200':
-          description: Login succeeded
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LoginResponse'
-              example:
-                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                expiresIn: 8h
-        '400':
-          description: Missing username or password
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error: username and password are required
-        '401':
-          description: Invalid credentials
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error: Unauthorized
-        '500':
-          description: Auth env not configured
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              example:
-                error: Auth is not configured
-
   /api/kb/akseptor/{nik}:
     get:
       tags: [kb]
@@ -108,7 +53,7 @@ paths:
         NIK must be exactly 16 digits and must not be 16 identical digits
         (e.g. `0000000000000000` or `9999999999999999`).
       security:
-        - bearerAuth: []
+        - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/NikPath'
       responses:
@@ -143,7 +88,7 @@ paths:
                       NIK tidak boleh 16 digit yang sama semua
                       (mis. 0000000000000000 atau 9999999999999999)
         '401':
-          description: Missing, invalid, or expired Bearer token
+          description: Missing or invalid X-API-Key
           content:
             application/json:
               schema:
@@ -176,7 +121,7 @@ paths:
         Alias of path form. Pass `nik` as a query parameter (exactly 16
         digits, not all identical).
       security:
-        - bearerAuth: []
+        - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/NikQuery'
       responses:
@@ -203,7 +148,7 @@ paths:
                       NIK tidak boleh 16 digit yang sama semua
                       (mis. 0000000000000000 atau 9999999999999999)
         '401':
-          description: Missing, invalid, or expired Bearer token
+          description: Missing or invalid X-API-Key
           content:
             application/json:
               schema:
@@ -228,11 +173,11 @@ paths:
 
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: HS256 JWT from `POST /api/auth/login`
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key matching env `API_KEY`
 
   parameters:
     NikPath:
@@ -328,29 +273,6 @@ components:
         db:
           type: string
           enum: [down]
-
-    LoginRequest:
-      type: object
-      required: [username, password]
-      properties:
-        username:
-          type: string
-          example: mitra_bkkbn
-        password:
-          type: string
-          format: password
-
-    LoginResponse:
-      type: object
-      required: [accessToken, expiresIn]
-      properties:
-        accessToken:
-          type: string
-          description: HS256 JWT (`sub`, `username`, `iat`, `exp`)
-        expiresIn:
-          type: string
-          description: Mirrors `JWT_EXPIRES_IN` (default `8h`)
-          example: 8h
 
     Error:
       type: object
