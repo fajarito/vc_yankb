@@ -10,9 +10,7 @@ info:
     `Authorization: Bearer <accessToken>`. `GET /health` is public.
 servers:
   - url: /
-    description: Current host (OpenShift / same origin as docs)
-  - url: http://localhost:3000
-    description: Local default (optional)
+    description: Current host
 tags:
   - name: health
     description: Liveness / readiness
