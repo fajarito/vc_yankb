@@ -1,5 +1,6 @@
 const express = require('express');
 const { query } = require('../db');
+const { mapAkseptorResponse } = require('../mapAkseptor');
 
 const router = express.Router();
 
@@ -52,7 +53,7 @@ router.get('/akseptor/:nik?', async (req, res) => {
       });
     }
 
-    return res.json(rows);
+    return res.json(mapAkseptorResponse(check.nik, rows));
   } catch (err) {
     console.error('[kb] query failed', err.message);
     return res.status(500).json({ error: 'Database query failed' });

@@ -48,7 +48,7 @@ Liveness + DB ping. Returns `200` with `{ status: "ok", db: "up" }` or `503` if 
 
 ### `GET /api/kb/akseptor/:nik`
 
-Returns matching rows from `sigabaru.mv_bnba_akseptor_2026` as a JSON array.
+Returns a structured JSON object for the NIK: personal biodata once (`pribadi`), all service rows as `layanan[]` sorted by `tanggalKb` descending, plus `meta`.
 
 Also accepts query form: `GET /api/kb/akseptor?nik=...`
 
@@ -56,7 +56,7 @@ Also accepts query form: `GET /api/kb/akseptor?nik=...`
 - **404** — no rows for that NIK
 - **500** — database error
 
-NIK column is queried as `"NIK"` (quoted, case-sensitive).
+NIK column is queried as `"NIK"` (quoted, case-sensitive). `pribadi` is taken from the newest layanan row.
 
 ## Example
 
@@ -67,7 +67,62 @@ curl -s "http://localhost:3000/api/kb/akseptor?nik=3202374707880005" | jq .
 curl -s "http://localhost:3000/health" | jq .
 ```
 
+Example `200` body:
+
+```json
+{
+  "nik": "3202374707880005",
+  "pribadi": {
+    "nama": "ATIKAH",
+    "tanggalLahir": "7/7/1988",
+    "stsKawin": null,
+    "hubunganDenganKk": 1,
+    "kki": "32023720040008003S00002",
+    "wilayah": {
+      "idProv": 12,
+      "kodeProv": "32",
+      "namaProv": "JAWA BARAT",
+      "idKab": 148,
+      "kodeKab": "02",
+      "namaKab": "SUKABUMI",
+      "idKec": 423,
+      "kodeKec": "37",
+      "namaKec": "PABUARAN",
+      "idKel": 3694,
+      "kodeKel": "2004",
+      "namaKel": "BANTARSARI"
+    }
+  },
+  "layanan": [
+    {
+      "tahun": "2026",
+      "bulan": 9,
+      "tanggalKb": "29/9/2026",
+      "statusPesertaKb": "Peserta KB Ulangan",
+      "jenisTindakan": null,
+      "jenisAlokon": null,
+      "informedConsent": "01",
+      "pelayananPascaPersalinan": "",
+      "pelayananPascaKeguguran": "",
+      "kasusKomplikasiBerat": "",
+      "kasusKegagalan": "",
+      "penggunaanAsuransi": "BPJS Kesehatan",
+      "sumberAlokon": "APBN",
+      "jsKodeSatuSehat": null,
+      "tempatPelayanan": {
+        "id": "320206103",
+        "nama": "POLINDES BANTARSARI"
+      }
+    }
+  ],
+  "meta": {
+    "jumlahLayanan": 1,
+    "diurutkan": "tanggalKb desc"
+  }
+}
+```
+
 ## Notes
 
 - No DB host/user/password is hardcoded; configure them only in `.env`.
-- Response shape matches the materialized view columns (e.g. `NIK`, `NamaPesertaKB`, `tanggalkb`, `statuspesertakb`, wilayah fields, `NamaTempatPelayananKB`, …).
+- Sorting: parse `tanggalkb` as `D/M/YYYY` (or `DD/MM/YYYY`); if parse fails, fall back to `Tahun` + `Bulan`. Newest first.
