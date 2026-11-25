@@ -1,6 +1,7 @@
 /**
  * Map MV rows → { nik, pribadi, layanan[], meta }.
  * Field names follow the approved camelCase design.
+ * Date fields in JSON are always `YYYY-MM-DD` (no time/Z).
  */
 
 function col(row, ...names) {
@@ -20,26 +21,66 @@ function col(row, ...names) {
   return null;
 }
 
-/** Parse D/M/YYYY or DD/MM/YYYY → timestamp ms, or null. */
-function parseTanggalKb(raw) {
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function isValidYmd(year, month, day) {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  return (
+    d.getUTCFullYear() === year &&
+    d.getUTCMonth() === month - 1 &&
+    d.getUTCDate() === day
+  );
+}
+
+/**
+ * Normalize a date-like value to `YYYY-MM-DD`, or null if empty/unparseable.
+ * Accepts: Date (e.g. from pg), D/M/YYYY, DD/MM/YYYY, ISO date, ISO datetime.
+ */
+function formatDateYmd(raw) {
   if (raw == null || raw === '') return null;
-  const s = String(raw).trim();
-  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
-  if (!m) return null;
-  const day = Number(m[1]);
-  const month = Number(m[2]);
-  const year = Number(m[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const ms = Date.UTC(year, month - 1, day);
-  const d = new Date(ms);
-  if (
-    d.getUTCFullYear() !== year ||
-    d.getUTCMonth() !== month - 1 ||
-    d.getUTCDate() !== day
-  ) {
-    return null;
+
+  if (raw instanceof Date) {
+    if (Number.isNaN(raw.getTime())) return null;
+    const y = raw.getUTCFullYear();
+    const m = raw.getUTCMonth() + 1;
+    const d = raw.getUTCDate();
+    if (!isValidYmd(y, m, d)) return null;
+    return `${y}-${pad2(m)}-${pad2(d)}`;
   }
-  return ms;
+
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/.exec(s);
+  if (iso) {
+    const year = Number(iso[1]);
+    const month = Number(iso[2]);
+    const day = Number(iso[3]);
+    if (!isValidYmd(year, month, day)) return null;
+    return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  }
+
+  const slash = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  if (slash) {
+    const day = Number(slash[1]);
+    const month = Number(slash[2]);
+    const year = Number(slash[3]);
+    if (!isValidYmd(year, month, day)) return null;
+    return `${year}-${pad2(month)}-${pad2(day)}`;
+  }
+
+  return null;
+}
+
+/** Parse date-like value → UTC midnight timestamp ms, or null. */
+function parseTanggalKb(raw) {
+  const ymd = formatDateYmd(raw);
+  if (!ymd) return null;
+  const [year, month, day] = ymd.split('-').map(Number);
+  return Date.UTC(year, month - 1, day);
 }
 
 function sortKey(row) {
@@ -60,7 +101,7 @@ function sortRowsNewestFirst(rows) {
 function mapPribadi(row) {
   return {
     nama: col(row, 'NamaPesertaKB'),
-    tanggalLahir: col(row, 'tanggal_lahir'),
+    tanggalLahir: formatDateYmd(col(row, 'tanggal_lahir')),
     stsKawin: col(row, 'sts_kawin'),
     hubunganDenganKk: col(row, 'hubungan_dengan_kk'),
     kki: col(row, 'kki'),
@@ -85,7 +126,7 @@ function mapLayanan(row) {
   return {
     tahun: col(row, 'Tahun', 'tahun'),
     bulan: col(row, 'Bulan', 'bulan'),
-    tanggalKb: col(row, 'tanggalkb'),
+    tanggalKb: formatDateYmd(col(row, 'tanggalkb')),
     statusPesertaKb: col(row, 'statuspesertakb'),
     jenisTindakan: col(row, 'jenistindakan'),
     jenisAlokon: col(row, 'jenisalokon'),
@@ -126,5 +167,6 @@ module.exports = {
   mapAkseptorResponse,
   sortRowsNewestFirst,
   parseTanggalKb,
+  formatDateYmd,
   col,
 };

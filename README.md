@@ -100,7 +100,7 @@ Example `200` KB body:
   "nik": "3202374707880005",
   "pribadi": {
     "nama": "ATIKAH",
-    "tanggalLahir": "7/7/1988",
+    "tanggalLahir": "1988-07-07",
     "stsKawin": null,
     "hubunganDenganKk": 1,
     "kki": "32023720040008003S00002",
@@ -123,7 +123,7 @@ Example `200` KB body:
     {
       "tahun": "2026",
       "bulan": 9,
-      "tanggalKb": "29/9/2026",
+      "tanggalKb": "2026-09-29",
       "statusPesertaKb": "Peserta KB Ulangan",
       "jenisTindakan": null,
       "jenisAlokon": null,
@@ -210,4 +210,5 @@ ConfigMap holds non-secrets (`PORT`, `DB_PORT`, `DB_NAME`, `APP_NAME`). Secret `
 ## Notes
 
 - No DB host/user/password or API key is hardcoded; configure them only in `.env` or OpenShift Secret.
-- Sorting: parse `tanggalkb` as `D/M/YYYY` (or `DD/MM/YYYY`); if parse fails, fall back to `Tahun` + `Bulan`. Newest first.
+- Dates in JSON (`tanggalLahir`, `tanggalKb`) are always `YYYY-MM-DD` (no time/Z). Source values may be `Date` (pg), `D/M/YYYY`, or ISO.
+- Sorting: parse `tanggalkb` (same forms as above); if parse fails, fall back to `Tahun` + `Bulan`. Newest first.

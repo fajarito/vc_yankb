@@ -212,7 +212,7 @@ components:
         nik: '3202374707880005'
         pribadi:
           nama: ATIKAH
-          tanggalLahir: 7/7/1988
+          tanggalLahir: '1988-07-07'
           stsKawin: null
           hubunganDenganKk: 1
           kki: '32023720040008003S00002'
@@ -232,7 +232,7 @@ components:
         layanan:
           - tahun: '2026'
             bulan: 9
-            tanggalKb: 29/9/2026
+            tanggalKb: '2026-09-29'
             statusPesertaKb: Peserta KB Ulangan
             jenisTindakan: null
             jenisAlokon: null
@@ -342,7 +342,9 @@ components:
         tanggalLahir:
           type: string
           nullable: true
-          description: Display date string from MV (e.g. D/M/YYYY)
+          format: date
+          description: Date of birth as `YYYY-MM-DD` (no time/Z)
+          example: '1988-07-07'
         stsKawin:
           nullable: true
         hubunganDenganKk:
@@ -375,7 +377,9 @@ components:
         tanggalKb:
           type: string
           nullable: true
-          description: Display date string (e.g. D/M/YYYY)
+          format: date
+          description: KB service date as `YYYY-MM-DD` (no time/Z)
+          example: '2026-09-29'
         statusPesertaKb:
           type: string
           nullable: true
