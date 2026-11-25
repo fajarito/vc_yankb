@@ -1,0 +1,20 @@
+{
+  "name": "vc-yankb",
+  "version": "1.0.0",
+  "description": "Lean Express API for KB service results (hasil pelayanan KB) by NIK",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.3"
+  }
+}
