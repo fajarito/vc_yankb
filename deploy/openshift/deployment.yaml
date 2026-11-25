@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vc-yankb
+  namespace: vc-yankb
+  labels:
+    app: vc-yankb
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vc-yankb
+  template:
+    metadata:
+      labels:
+        app: vc-yankb
+    spec:
+      containers:
+        - name: api
+          # Image stream in OpenShift Project vc-yankb.
+          image: image-registry.openshift-image-registry.svc:5000/vc-yankb/vc-yankb:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: vc-yankb-config
+            - secretRef:
+                name: vc-yankb-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+      # OpenShift restricted SCC injects random UID; do not pin runAsUser.
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault

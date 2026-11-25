@@ -51,6 +51,6 @@ app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-app.listen(port, () => {
-  console.log(`vc-yankb listening on :${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`vc-yankb listening on 0.0.0.0:${port}`);
 });
