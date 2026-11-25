@@ -10,6 +10,8 @@ OpenAPI 3 spec: [`docs/openapi.yaml`](docs/openapi.yaml).
 
 With the server running, interactive Swagger UI is at `GET /api/docs` (raw YAML also at `GET /api/docs/openapi.yaml`). Both are public (no Bearer).
 
+**Try it out** uses the OpenAPI `servers` entry `/` (same origin as the docs page), so it works on OpenShift and any deployed host—not only `localhost`. Localhost remains listed as an optional second server for local runs.
+
 ## Requirements
 
 - Node.js 18+
@@ -56,7 +58,7 @@ All secrets live in `.env` (see `.env.example`). Do not put secrets in source or
 
 ### `GET /api/docs`
 
-Swagger UI (public). Spec file: [`docs/openapi.yaml`](docs/openapi.yaml).
+Swagger UI (public). Spec file: [`docs/openapi.yaml`](docs/openapi.yaml). Requests from **Try it out** go to the current host (`servers: /`), matching the Route URL on OpenShift.
 
 ### `GET /health`
 
