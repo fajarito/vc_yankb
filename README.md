@@ -162,7 +162,66 @@ Example `200` KB body:
 }
 ```
 
+## OpenShift deploy
+
+**Project / namespace:** `vc-yankb`.
+
+Node 20 API image (non-root, listens on `PORT` / **8080**, binds `0.0.0.0`). Manifests under `deploy/openshift/`. Do **not** commit secrets — create them in the cluster.
+
+### 1. Create Secret (once per cluster / project)
+
+Values come from your local `.env` only. Never put them in git.
+
+```bash
+oc project vc-yankb
+oc create secret generic vc-yankb-secrets \
+  --from-literal=DB_HOST='...' \
+  --from-literal=DB_USER='...' \
+  --from-literal=DB_PASSWORD='...' \
+  --from-literal=JWT_SECRET='...' \
+  --from-literal=AUTH_USERNAME='...' \
+  --from-literal=AUTH_PASSWORD='...' \
+  --from-literal=DB_SSL='false'
+```
+
+To rotate later: `oc delete secret vc-yankb-secrets -n vc-yankb` then recreate, then `oc rollout restart deployment/vc-yankb -n vc-yankb`.
+
+### 2. Build & push image
+
+```bash
+# From repo root — namespace vc-yankb
+podman build -t image-registry.openshift-image-registry.svc:5000/vc-yankb/vc-yankb:latest .
+podman push image-registry.openshift-image-registry.svc:5000/vc-yankb/vc-yankb:latest
+```
+
+Or with OpenShift Build:
+
+```bash
+oc project vc-yankb
+oc new-build --name=vc-yankb --binary --strategy=docker
+oc start-build vc-yankb --from-dir=. --follow
+```
+
+### 3. Optional Route host
+
+Set `spec.host` in `deploy/openshift/route.yaml` if you need a fixed hostname; otherwise OpenShift generates one.
+
+### 4. Apply manifests
+
+```bash
+oc project vc-yankb
+oc apply -f deploy/openshift/configmap.yaml
+oc apply -f deploy/openshift/deployment.yaml
+oc apply -f deploy/openshift/service.yaml
+oc apply -f deploy/openshift/route.yaml
+oc get route vc-yankb -n vc-yankb
+```
+
+Smoke after Route is ready: `GET /health`, `GET /api/docs`.
+
+ConfigMap holds non-secrets (`PORT`, `JWT_EXPIRES_IN`, `DB_PORT`, `DB_NAME`, `APP_NAME`). Secret `vc-yankb-secrets` supplies `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `AUTH_USERNAME`, `AUTH_PASSWORD` (and optional `DB_SSL`).
+
 ## Notes
 
-- No DB host/user/password is hardcoded; configure them only in `.env`.
+- No DB host/user/password is hardcoded; configure them only in `.env` or OpenShift Secret.
 - Sorting: parse `tanggalkb` as `D/M/YYYY` (or `DD/MM/YYYY`); if parse fails, fall back to `Tahun` + `Bulan`. Newest first.
