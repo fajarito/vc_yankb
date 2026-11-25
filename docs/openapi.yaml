@@ -1,0 +1,517 @@
+openapi: 3.0.3
+info:
+  title: Yan KB API
+  version: 1.0.0
+  description: |
+    Lean Express API for hasil pelayanan KB (family planning service results)
+    by NIK from Postgres MV `sigabaru.mv_bnba_akseptor_2026`.
+
+    Authenticate with `POST /api/auth/login`, then call `/api/kb/*` using
+    `Authorization: Bearer <accessToken>`. `GET /health` is public.
+servers:
+  - url: http://localhost:3000
+    description: Local default
+tags:
+  - name: health
+    description: Liveness / readiness
+  - name: auth
+    description: JWT login
+  - name: kb
+    description: KB akseptor lookup (Bearer required)
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      description: Public liveness probe with a Postgres ping.
+      security: []
+      responses:
+        '200':
+          description: Process up and DB reachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthOk'
+              example:
+                status: ok
+                db: up
+        '503':
+          description: Process up but DB unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthDegraded'
+              example:
+                status: degraded
+                db: down
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Login and obtain JWT
+      description: |
+        Validates a single env-configured user (`AUTH_USERNAME` /
+        `AUTH_PASSWORD`). Returns an HS256 JWT. Default example username
+        is `mitra_bkkbn`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: mitra_bkkbn
+              password: '***'
+      responses:
+        '200':
+          description: Login succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                expiresIn: 8h
+        '400':
+          description: Missing username or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: username and password are required
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Unauthorized
+        '500':
+          description: Auth env not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Auth is not configured
+
+  /api/kb/akseptor/{nik}:
+    get:
+      tags: [kb]
+      summary: Get KB akseptor by NIK (path)
+      description: |
+        Returns personal biodata once (`pribadi`), all service rows as
+        `layanan[]` sorted by `tanggalKb` descending, plus `meta`.
+        NIK must be exactly 16 digits and must not be 16 identical digits
+        (e.g. `0000000000000000` or `9999999999999999`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NikPath'
+      responses:
+        '200':
+          description: Akseptor found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AkseptorResponse'
+              examples:
+                sample:
+                  $ref: '#/components/examples/AkseptorExample'
+        '400':
+          description: NIK tidak valid (kurang/lebih dari 16 digit, atau 16 digit sama)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                missing:
+                  value:
+                    error: NIK tidak valid
+                    message: NIK wajib diisi dan harus tepat 16 digit angka
+                invalidLength:
+                  value:
+                    error: NIK tidak valid
+                    message: NIK harus tepat 16 digit angka
+                identicalDigits:
+                  value:
+                    error: NIK tidak valid
+                    message: >-
+                      NIK tidak boleh 16 digit yang sama semua
+                      (mis. 0000000000000000 atau 9999999999999999)
+        '401':
+          description: Missing, invalid, or expired Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Unauthorized
+        '404':
+          description: Data akseptor tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                error: Tidak ditemukan
+                message: Data akseptor untuk NIK tersebut tidak ditemukan
+        '500':
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Database query failed
+
+  /api/kb/akseptor:
+    get:
+      tags: [kb]
+      summary: Get KB akseptor by NIK (query)
+      description: |
+        Alias of path form. Pass `nik` as a query parameter (exactly 16
+        digits, not all identical).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/NikQuery'
+      responses:
+        '200':
+          description: Akseptor found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AkseptorResponse'
+              examples:
+                sample:
+                  $ref: '#/components/examples/AkseptorExample'
+        '400':
+          description: NIK tidak valid (kurang/lebih dari 16 digit, atau 16 digit sama)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                identicalDigits:
+                  value:
+                    error: NIK tidak valid
+                    message: >-
+                      NIK tidak boleh 16 digit yang sama semua
+                      (mis. 0000000000000000 atau 9999999999999999)
+        '401':
+          description: Missing, invalid, or expired Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Unauthorized
+        '404':
+          description: Data akseptor tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                error: Tidak ditemukan
+                message: Data akseptor untuk NIK tersebut tidak ditemukan
+        '500':
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: HS256 JWT from `POST /api/auth/login`
+
+  parameters:
+    NikPath:
+      name: nik
+      in: path
+      required: true
+      description: |
+        Exactly 16 digits; rejected if all digits are the same character.
+      schema:
+        type: string
+        pattern: '^\d{16}$'
+        not:
+          pattern: '^(\d)\1{15}$'
+      example: '3202374707880005'
+    NikQuery:
+      name: nik
+      in: query
+      required: true
+      description: |
+        Exactly 16 digits; rejected if all digits are the same character.
+      schema:
+        type: string
+        pattern: '^\d{16}$'
+        not:
+          pattern: '^(\d)\1{15}$'
+      example: '3202374707880005'
+
+  examples:
+    AkseptorExample:
+      summary: Sample akseptor response
+      value:
+        nik: '3202374707880005'
+        pribadi:
+          nama: ATIKAH
+          tanggalLahir: 7/7/1988
+          stsKawin: null
+          hubunganDenganKk: 1
+          kki: '32023720040008003S00002'
+          wilayah:
+            idProv: 12
+            kodeProv: '32'
+            namaProv: JAWA BARAT
+            idKab: 148
+            kodeKab: '02'
+            namaKab: SUKABUMI
+            idKec: 423
+            kodeKec: '37'
+            namaKec: PABUARAN
+            idKel: 3694
+            kodeKel: '2004'
+            namaKel: BANTARSARI
+        layanan:
+          - tahun: '2026'
+            bulan: 9
+            tanggalKb: 29/9/2026
+            statusPesertaKb: Peserta KB Ulangan
+            jenisTindakan: null
+            jenisAlokon: null
+            informedConsent: '01'
+            pelayananPascaPersalinan: ''
+            pelayananPascaKeguguran: ''
+            kasusKomplikasiBerat: ''
+            kasusKegagalan: ''
+            penggunaanAsuransi: BPJS Kesehatan
+            sumberAlokon: APBN
+            jsKodeSatuSehat: null
+            tempatPelayanan:
+              id: '320206103'
+              nama: POLINDES BANTARSARI
+        meta:
+          jumlahLayanan: 1
+          diurutkan: tanggalKb desc
+
+  schemas:
+    HealthOk:
+      type: object
+      required: [status, db]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        db:
+          type: string
+          enum: [up]
+
+    HealthDegraded:
+      type: object
+      required: [status, db]
+      properties:
+        status:
+          type: string
+          enum: [degraded]
+        db:
+          type: string
+          enum: [down]
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: mitra_bkkbn
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      required: [accessToken, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: HS256 JWT (`sub`, `username`, `iat`, `exp`)
+        expiresIn:
+          type: string
+          description: Mirrors `JWT_EXPIRES_IN` (default `8h`)
+          example: 8h
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    ApiError:
+      type: object
+      required: [error, message]
+      description: KB client error body (Indonesian `error` + explanatory `message`)
+      properties:
+        error:
+          type: string
+          description: Short error code/label
+        message:
+          type: string
+          description: Human-readable explanation of the rule or outcome
+
+    Wilayah:
+      type: object
+      properties:
+        idProv:
+          type: integer
+          nullable: true
+        kodeProv:
+          type: string
+          nullable: true
+        namaProv:
+          type: string
+          nullable: true
+        idKab:
+          type: integer
+          nullable: true
+        kodeKab:
+          type: string
+          nullable: true
+        namaKab:
+          type: string
+          nullable: true
+        idKec:
+          type: integer
+          nullable: true
+        kodeKec:
+          type: string
+          nullable: true
+        namaKec:
+          type: string
+          nullable: true
+        idKel:
+          type: integer
+          nullable: true
+        kodeKel:
+          type: string
+          nullable: true
+        namaKel:
+          type: string
+          nullable: true
+
+    Pribadi:
+      type: object
+      properties:
+        nama:
+          type: string
+          nullable: true
+        tanggalLahir:
+          type: string
+          nullable: true
+          description: Display date string from MV (e.g. D/M/YYYY)
+        stsKawin:
+          nullable: true
+        hubunganDenganKk:
+          nullable: true
+        kki:
+          type: string
+          nullable: true
+        wilayah:
+          $ref: '#/components/schemas/Wilayah'
+
+    TempatPelayanan:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+        nama:
+          type: string
+          nullable: true
+
+    Layanan:
+      type: object
+      properties:
+        tahun:
+          type: string
+          nullable: true
+        bulan:
+          type: integer
+          nullable: true
+        tanggalKb:
+          type: string
+          nullable: true
+          description: Display date string (e.g. D/M/YYYY)
+        statusPesertaKb:
+          type: string
+          nullable: true
+        jenisTindakan:
+          type: string
+          nullable: true
+        jenisAlokon:
+          type: string
+          nullable: true
+        informedConsent:
+          type: string
+          nullable: true
+        pelayananPascaPersalinan:
+          type: string
+          nullable: true
+        pelayananPascaKeguguran:
+          type: string
+          nullable: true
+        kasusKomplikasiBerat:
+          type: string
+          nullable: true
+        kasusKegagalan:
+          type: string
+          nullable: true
+        penggunaanAsuransi:
+          type: string
+          nullable: true
+        sumberAlokon:
+          type: string
+          nullable: true
+        jsKodeSatuSehat:
+          type: string
+          nullable: true
+        tempatPelayanan:
+          $ref: '#/components/schemas/TempatPelayanan'
+
+    Meta:
+      type: object
+      properties:
+        jumlahLayanan:
+          type: integer
+        diurutkan:
+          type: string
+          example: tanggalKb desc
+
+    AkseptorResponse:
+      type: object
+      required: [nik, pribadi, layanan, meta]
+      properties:
+        nik:
+          type: string
+          pattern: '^\d{16}$'
+          description: Exactly 16 digits; never all identical
+        pribadi:
+          $ref: '#/components/schemas/Pribadi'
+        layanan:
+          type: array
+          items:
+            $ref: '#/components/schemas/Layanan'
+        meta:
+          $ref: '#/components/schemas/Meta'

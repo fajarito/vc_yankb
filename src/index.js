@@ -1,6 +1,8 @@
 require('dotenv').config();
 
+const path = require('path');
 const express = require('express');
+const swaggerUi = require('swagger-ui-express');
 const authRouter = require('./routes/auth');
 const kbRouter = require('./routes/kb');
 const { requireAuth } = require('./middleware/auth');
@@ -8,6 +10,7 @@ const { healthCheck } = require('./db');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
+const openapiPath = path.join(__dirname, '..', 'docs', 'openapi.yaml');
 
 if (!process.env.JWT_SECRET) {
   console.warn('[auth] missing env JWT_SECRET');
@@ -27,6 +30,19 @@ app.get('/health', async (_req, res) => {
     return res.status(503).json({ status: 'degraded', db: 'down' });
   }
 });
+
+app.get('/api/docs/openapi.yaml', (_req, res) => {
+  res.type('application/yaml').sendFile(openapiPath);
+});
+
+app.use(
+  '/api/docs',
+  swaggerUi.serve,
+  swaggerUi.setup(null, {
+    swaggerOptions: { url: '/api/docs/openapi.yaml' },
+    customSiteTitle: 'Yan KB API docs',
+  })
+);
 
 app.use('/api/auth', authRouter);
 app.use('/api/kb', requireAuth, kbRouter);

@@ -4,6 +4,12 @@ Lean Node.js + Express API for **hasil pelayanan KB** (family planning service r
 
 Protected with Bearer JWT (HS256). Obtain a token via `POST /api/auth/login`, then call `/api/kb/*` with `Authorization: Bearer <accessToken>`. `GET /health` stays public.
 
+## API docs
+
+OpenAPI 3 spec: [`docs/openapi.yaml`](docs/openapi.yaml).
+
+With the server running, interactive Swagger UI is at `GET /api/docs` (raw YAML also at `GET /api/docs/openapi.yaml`). Both are public (no Bearer).
+
 ## Requirements
 
 - Node.js 18+
@@ -48,6 +54,10 @@ All secrets live in `.env` (see `.env.example`). Do not put secrets in source or
 
 ## Endpoints
 
+### `GET /api/docs`
+
+Swagger UI (public). Spec file: [`docs/openapi.yaml`](docs/openapi.yaml).
+
 ### `GET /health`
 
 Liveness + DB ping (public). Returns `200` with `{ status: "ok", db: "up" }` or `503` if DB is unreachable.
@@ -71,8 +81,8 @@ Returns a structured JSON object for the NIK: personal biodata once (`pribadi`),
 Also accepts query form: `GET /api/kb/akseptor?nik=...`
 
 - **401** — missing/invalid/expired Bearer token
-- **400** — missing NIK or not exactly 16 digits
-- **404** — no rows for that NIK
+- **400** — NIK tidak valid: `{ "error": "NIK tidak valid", "message": "..." }` (missing, not exactly 16 digits, or all 16 digits identical)
+- **404** — `{ "error": "Tidak ditemukan", "message": "Data akseptor untuk NIK tersebut tidak ditemukan" }`
 - **500** — database error
 
 NIK column is queried as `"NIK"` (quoted, case-sensitive). `pribadi` is taken from the newest layanan row.
