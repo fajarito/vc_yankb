@@ -32,40 +32,63 @@ if (!missing) {
   });
 } else {
   console.warn(
-    '[siga-db] pool not created; pribadi.namaPasangan will be "-"'
+    '[siga-db] pool not created; nama_pasangan / tanggal_cabut_lepas will be "-"'
   );
 }
 
+function trimOrNull(value) {
+  if (value == null) return null;
+  const trimmed = String(value).trim();
+  return trimmed || null;
+}
+
 /**
- * Latest non-empty NamaSuami for NIK from parent partition table.
- * Never throws: returns null on missing pool, no row, or query failure.
+ * Enrichment from SIGA parent partition table for one NIK.
+ * Never throws: returns nulls on missing pool / no row / query failure.
+ *
+ * - namaPasangan: latest non-empty NamaSuami (Tanggal desc, Created desc)
+ * - tanggalCabutLepas: latest non-null TanggalJatuhTempo (same order)
+ *
  * @param {string} nik
- * @returns {Promise<string|null>}
+ * @returns {Promise<{ namaPasangan: string|null, tanggalCabutLepas: * }>}
  */
-async function findNamaPasangan(nik) {
-  if (!pool) return null;
+async function findSigaEnrichment(nik) {
+  const empty = { namaPasangan: null, tanggalCabutLepas: null };
+  if (!pool) return empty;
 
   const sql = `
-    SELECT "NamaSuami"
+    SELECT "NamaSuami", "TanggalJatuhTempo"
     FROM ${TABLE}
     WHERE "NIK" = $1
-      AND "NamaSuami" IS NOT NULL
-      AND BTRIM("NamaSuami") <> ''
     ORDER BY "Tanggal" DESC, "Created" DESC NULLS LAST
-    LIMIT 1
+    LIMIT 50
   `;
 
   try {
     const result = await pool.query(sql, [nik]);
-    if (!result.rows.length) return null;
-    const value = result.rows[0].NamaSuami;
-    if (value == null) return null;
-    const trimmed = String(value).trim();
-    return trimmed || null;
+    let namaPasangan = null;
+    let tanggalCabutLepas = null;
+    for (const row of result.rows) {
+      if (namaPasangan == null) {
+        const name = trimOrNull(row.NamaSuami);
+        if (name) namaPasangan = name;
+      }
+      if (tanggalCabutLepas == null && row.TanggalJatuhTempo != null) {
+        tanggalCabutLepas = row.TanggalJatuhTempo;
+      }
+      if (namaPasangan != null && tanggalCabutLepas != null) break;
+    }
+    return { namaPasangan, tanggalCabutLepas };
   } catch (err) {
-    console.error('[siga-db] namaPasangan query failed', err.message);
-    return null;
+    console.error('[siga-db] enrichment query failed', err.message);
+    return empty;
   }
 }
 
-module.exports = { pool, findNamaPasangan };
+/** @deprecated use findSigaEnrichment */
+async function findNamaPasangan(nik) {
+  const { namaPasangan } = await findSigaEnrichment(nik);
+  return namaPasangan;
+}
+
+module.exports = { pool, findSigaEnrichment, findNamaPasangan };

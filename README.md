@@ -1,6 +1,6 @@
 # vc_yankb
 
-Lean Node.js + Express API for **hasil pelayanan KB** (family planning service results), looking up Postgres materialized view `sigabaru.mv_bnba_akseptor_2026` in database `BKKBN` by NIK. Spouse name (`pribadi.namaPasangan`) comes from a second database `BKKBN_SIGA` → `sigabaru."dat_PelayananKBDetil"."NamaSuami"`.
+Lean Node.js + Express API for **hasil pelayanan KB** (family planning service results), looking up Postgres materialized view `sigabaru.mv_bnba_akseptor_2026` in database `BKKBN` by NIK. Response is flat snake_case rows under `data[]`. SIGA (`BKKBN_SIGA` → `sigabaru."dat_PelayananKBDetil"`) enriches `nama_pasangan` (`NamaSuami`) and `tanggal_cabut_lepas` (`TanggalJatuhTempo`). Empty/missing → `"-"`.
 
 Protected with API key. Call `/api/kb/*` with header `X-API-Key` matching env `API_KEY`. `GET /health` and `GET /api/docs` stay public. JWT login (`POST /api/auth/login`) is removed.
 
@@ -15,7 +15,7 @@ With the server running, interactive Swagger UI is at `GET /api/docs` (raw YAML 
 ## Requirements
 
 - Node.js 18+
-- Access to Postgres `BKKBN` (MV) and optionally `BKKBN_SIGA` (`namaPasangan`) on port `5435`
+- Access to Postgres `BKKBN` (MV) and optionally `BKKBN_SIGA` (`nama_pasangan`, `tanggal_cabut_lepas`) on port `5435`
 
 ## Setup
 
@@ -47,7 +47,7 @@ All secrets live in `.env` (see `.env.example`). Do not put secrets in source or
 | `DB_USER`          | —             | Primary DB user (required)                               |
 | `DB_PASSWORD`      | —             | Primary DB password (required)                           |
 | `DB_SSL`           | `false`       | Set `true` to enable SSL on primary                      |
-| `SIGA_DB_HOST`     | —             | SIGA Postgres host (for `namaPasangan`)                  |
+| `SIGA_DB_HOST`     | —             | SIGA Postgres host (spouse / cabut-lepas enrich)         |
 | `SIGA_DB_PORT`     | `5435`        | SIGA Postgres port                                       |
 | `SIGA_DB_NAME`     | `BKKBN_SIGA`  | SIGA database name                                       |
 | `SIGA_DB_USER`     | —             | SIGA DB user                                             |
@@ -57,7 +57,7 @@ All secrets live in `.env` (see `.env.example`). Do not put secrets in source or
 
 `.gitignore` excludes `.env`. Set a real `API_KEY` only in local `.env` / secrets — never commit it.
 
-If `SIGA_DB_*` is missing or the SIGA query fails, the API still returns the MV response with `pribadi.namaPasangan: "-"` (error logged server-side; no 5xx).
+If `SIGA_DB_*` is missing or the SIGA query fails, the API still returns the MV response with `nama_pasangan` / `tanggal_cabut_lepas` as `"-"` (error logged server-side; no 5xx).
 
 Legacy JWT vars (`JWT_SECRET`, `JWT_EXPIRES_IN`, `AUTH_USERNAME`, `AUTH_PASSWORD`) are unused and appear commented in `.env.example` for reference only.
 
@@ -75,7 +75,7 @@ Liveness + DB ping (public). Returns `200` with `{ status: "ok", db: "up" }` or 
 
 Requires header `X-API-Key: <API_KEY>`.
 
-Returns a structured JSON object for the NIK: personal biodata once (`pribadi`, including `namaPasangan` when SIGA is available), all service rows as `layanan[]` sorted by `tanggalKb` descending, plus `meta`.
+Returns `{ nik, data[], meta }`. Each `data` item is one layanan row (newest `tanggal_pemakaian` first), flat snake_case. Empty/missing fields are `"-"`.
 
 Also accepts query form: `GET /api/kb/akseptor?nik=...`
 
@@ -84,7 +84,7 @@ Also accepts query form: `GET /api/kb/akseptor?nik=...`
 - **404** — `{ "error": "Tidak ditemukan", "message": "Data akseptor untuk NIK tersebut tidak ditemukan" }`
 - **500** — primary (MV) database error
 
-NIK column is queried as `"NIK"` (quoted, case-sensitive). `pribadi` is taken from the newest layanan row. `namaPasangan` is the latest non-empty `"NamaSuami"` from `sigabaru."dat_PelayananKBDetil"` ordered by `"Tanggal"` DESC, then `"Created"` DESC.
+NIK column is queried as `"NIK"` (quoted, case-sensitive). SIGA enrich: latest non-empty `"NamaSuami"` → `nama_pasangan`; latest non-null `"TanggalJatuhTempo"` → `tanggal_cabut_lepas`. `jenis_kelamin` is `"-"` unless the MV exposes a gender column (current sample has none). `metode_kontrasepsi` prefers `jenisalokon`, else `jenistindakan`.
 
 ## Example
 
@@ -106,53 +106,21 @@ Example `200` KB body:
 ```json
 {
   "nik": "3202374707880005",
-  "pribadi": {
-    "nama": "ATIKAH",
-    "namaPasangan": "MUHAMMAD RAFIL",
-    "tanggalLahir": "1988-07-07",
-    "stsKawin": null,
-    "hubunganDenganKk": 1,
-    "kki": "32023720040008003S00002",
-    "wilayah": {
-      "idProv": 12,
-      "kodeProv": "32",
-      "namaProv": "JAWA BARAT",
-      "idKab": 148,
-      "kodeKab": "02",
-      "namaKab": "SUKABUMI",
-      "idKec": 423,
-      "kodeKec": "37",
-      "namaKec": "PABUARAN",
-      "idKel": 3694,
-      "kodeKel": "2004",
-      "namaKel": "BANTARSARI"
-    }
-  },
-  "layanan": [
+  "data": [
     {
-      "tahun": "2026",
-      "bulan": 9,
-      "tanggalKb": "2026-09-29",
-      "statusPesertaKb": "Peserta KB Ulangan",
-      "jenisTindakan": null,
-      "jenisAlokon": null,
-      "informedConsent": "01",
-      "pelayananPascaPersalinan": "",
-      "pelayananPascaKeguguran": "",
-      "kasusKomplikasiBerat": "",
-      "kasusKegagalan": "",
-      "penggunaanAsuransi": "BPJS Kesehatan",
-      "sumberAlokon": "APBN",
-      "jsKodeSatuSehat": null,
-      "tempatPelayanan": {
-        "id": "320206103",
-        "nama": "POLINDES BANTARSARI"
-      }
+      "nama_lengkap": "ATIKAH",
+      "tanggal_lahir": "1988-07-07",
+      "jenis_kelamin": "-",
+      "nama_pasangan": "MUHAMMAD RAFIL",
+      "asuransi": "BPJS Kesehatan",
+      "metode_kontrasepsi": "-",
+      "tanggal_pemakaian": "2026-09-29",
+      "tanggal_cabut_lepas": "-"
     }
   ],
   "meta": {
-    "jumlahLayanan": 1,
-    "diurutkan": "tanggalKb desc"
+    "jumlah": 1,
+    "diurutkan": "tanggal_pemakaian desc"
   }
 }
 ```
@@ -223,6 +191,7 @@ ConfigMap holds non-secrets (`PORT`, `DB_PORT`, `DB_NAME`, `APP_NAME`, `SIGA_DB_
 ## Notes
 
 - No DB host/user/password or API key is hardcoded; configure them only in `.env` or OpenShift Secret.
-- Dates in JSON (`tanggalLahir`, `tanggalKb`) are always `YYYY-MM-DD` (no time/Z). Source values may be `Date` (pg), `D/M/YYYY`, or ISO.
+- Date fields (`tanggal_lahir`, `tanggal_pemakaian`, `tanggal_cabut_lepas`) are `YYYY-MM-DD` or `"-"`. Source values may be `Date` (pg), `D/M/YYYY`, or ISO.
 - Sorting: parse `tanggalkb` (same forms as above); if parse fails, fall back to `Tahun` + `Bulan`. Newest first.
-- `namaPasangan` uses a separate `pg` Pool (`SIGA_DB_*`). Query parent partition table only; Postgres routes to shards.
+- SIGA uses a separate `pg` Pool (`SIGA_DB_*`). Query parent partition table only; Postgres routes to shards.
+- All empty/missing string fields in `data[]` are `"-"`.
