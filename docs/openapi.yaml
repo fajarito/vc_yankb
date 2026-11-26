@@ -181,7 +181,7 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
-      description: API key matching env `API_KEY`
+      description: 'API key matching env `API_KEY`'
 
   parameters:
     NikPath:
@@ -256,7 +256,7 @@ components:
     ApiError:
       type: object
       required: [error, message]
-      description: KB client error body (Indonesian `error` + explanatory `message`)
+      description: 'KB client error body (Indonesian `error` + explanatory `message`)'
       properties:
         error:
           type: string
@@ -285,11 +285,11 @@ components:
           example: '3202374707880005'
         nama_lengkap:
           type: string
-          description: From MV `NamaPesertaKB` (latest layanan row)
+          description: 'From MV `NamaPesertaKB` (latest layanan row)'
           example: ATIKAH
         tanggal_lahir:
           type: string
-          description: `YYYY-MM-DD` or `"-"`
+          description: '`YYYY-MM-DD` or `"-"`'
           example: '1988-07-07'
         jenis_kelamin:
           type: string
@@ -303,15 +303,15 @@ components:
           example: MUHAMMAD RAFIL
         asuransi:
           type: string
-          description: From MV `penggunaanasuransi`
+          description: 'From MV `penggunaanasuransi`'
           example: BPJS Kesehatan
         metode_kontrasepsi:
           type: string
-          description: Prefer MV `jenisalokon`, else `jenistindakan`, else `"-"`
+          description: 'Prefer MV `jenisalokon`, else `jenistindakan`, else `"-"`'
           example: Suntikan 1 Bulanan
         tanggal_pemakaian:
           type: string
-          description: From MV `tanggalkb` as `YYYY-MM-DD` or `"-"`
+          description: 'From MV `tanggalkb` as `YYYY-MM-DD` or `"-"`'
           example: '2026-09-29'
         tanggal_cabut_lepas:
           type: string
