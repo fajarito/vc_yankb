@@ -86,7 +86,7 @@ Also accepts query form: `GET /api/kb/akseptor?nik=...`
 - **404** — `{ "error": "Tidak ditemukan", "message": "Data akseptor untuk NIK tersebut tidak ditemukan" }`
 - **500** — primary (MV) database error
 
-NIK column is queried as `"NIK"` (quoted, case-sensitive). Latest row by `tanggalkb` (fallback `Tahun`+`Bulan`). SIGA enrich: latest non-empty `"NamaSuami"` → `nama_pasangan`. If `nama_pasangan` equals `nama_lengkap` (trim, case-insensitive) → `"-"`. `jenis_kelamin` from NIK digits 7–8: `01`–`31` → `Laki-laki`; `41`–`71` → `Perempuan`; else `"-"`. `metode_kontrasepsi` prefers `jenisalokon`, else `jenistindakan`. `tanggal_cabut_lepas` = `tanggal_pemakaian` + duration by metode (case-insensitive trim match to MV labels); metode empty/`"-"` / unknown / bad date → `null`.
+NIK column is queried as `"NIK"` (quoted, case-sensitive). Latest row by `tanggalkb` (fallback `Tahun`+`Bulan`). SIGA enrich: latest non-empty `"NamaSuami"` → `nama_pasangan`. If `nama_pasangan` equals `nama_lengkap` (trim, case-insensitive) → `"-"`. `jenis_kelamin` from NIK digits 7–8: `01`–`31` → `LAKI-LAKI`; `41`–`71` → `PEREMPUAN`; else `"-"`. `metode_kontrasepsi` prefers `jenisalokon`, else `jenistindakan`. `tanggal_cabut_lepas` = `tanggal_pemakaian` + duration by metode (case-insensitive trim match to MV labels); metode empty/`"-"` / unknown / bad date → `null`.
 
 ## Example
 
@@ -110,7 +110,7 @@ Example `200` KB body (metode empty → `tanggal_cabut_lepas` null):
   "nik": "3202374707880005",
   "nama_lengkap": "ATIKAH",
   "tanggal_lahir": "1988-07-07",
-  "jenis_kelamin": "Perempuan",
+  "jenis_kelamin": "PEREMPUAN",
   "nama_pasangan": "MUHAMMAD RAFIL",
   "asuransi": "BPJS Kesehatan",
   "metode_kontrasepsi": "-",
@@ -126,7 +126,7 @@ Example with known metode (`Suntikan 1 Bulanan` → +1 month):
   "nik": "3202374707880005",
   "nama_lengkap": "ATIKAH",
   "tanggal_lahir": "1988-07-07",
-  "jenis_kelamin": "Perempuan",
+  "jenis_kelamin": "PEREMPUAN",
   "nama_pasangan": "MUHAMMAD RAFIL",
   "asuransi": "BPJS Kesehatan",
   "metode_kontrasepsi": "Suntikan 1 Bulanan",
@@ -156,8 +156,8 @@ Example with known metode (`Suntikan 1 Bulanan` → +1 month):
 
 | NIK | Digits 7–8 | `jenis_kelamin` |
 |-----|------------|-----------------|
-| `3202370707880001` | `07` | `Laki-laki` |
-| `3202374707880005` | `47` | `Perempuan` |
+| `3202370707880001` | `07` | `LAKI-LAKI` |
+| `3202374707880005` | `47` | `PEREMPUAN` |
 | `3202379907880001` | `99` | `-` |
 
 ## OpenShift deploy

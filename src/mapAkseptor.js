@@ -187,15 +187,15 @@ function tanggalCabutLepasFromMetode(metode, tanggalPemakaian) {
 
 /**
  * jenis_kelamin from NIK digits 7–8 (1-based; string index 6–7).
- * 01–31 → "Laki-laki"; 41–71 → "Perempuan" (calendar day = value − 40); else "-".
+ * 01–31 → "LAKI-LAKI"; 41–71 → "PEREMPUAN" (calendar day = value − 40); else "-".
  */
 function jenisKelaminFromNik(nik) {
   const s = String(nik ?? '');
   if (!/^\d{16}$/.test(s)) return '-';
   const dayCode = Number(s.slice(6, 8));
   if (!Number.isFinite(dayCode)) return '-';
-  if (dayCode >= 1 && dayCode <= 31) return 'Laki-laki';
-  if (dayCode >= 41 && dayCode <= 71) return 'Perempuan';
+  if (dayCode >= 1 && dayCode <= 31) return 'LAKI-LAKI';
+  if (dayCode >= 41 && dayCode <= 71) return 'PEREMPUAN';
   return '-';
 }
 
