@@ -1,15 +1,18 @@
 openapi: 3.0.3
 info:
   title: Yan KB API
-  version: 1.5.0
+  version: 1.6.0
   description: |
     Lean Express API for hasil pelayanan KB (family planning service results)
     by NIK from Postgres MV `sigabaru.mv_bnba_akseptor_2026`.
 
     Response is a single flat snake_case object for the latest layanan row.
-    SIGA (`BKKBN_SIGA`) enriches `nama_pasangan` (`NamaSuami`) and
-    `tanggal_cabut_lepas` (`TanggalJatuhTempo`). Empty/missing values are `"-"`;
-    empty/missing `tanggal_cabut_lepas` is JSON `null` (not `"0000-00-00"` or `"-"`).
+    SIGA (`BKKBN_SIGA`) enriches `nama_pasangan` (`NamaSuami`).
+    `tanggal_cabut_lepas` is computed from `metode_kontrasepsi` +
+    `tanggal_pemakaian` (calendar add by method duration; preferred over SIGA
+    `TanggalJatuhTempo`). Empty/missing string fields are `"-"`; empty/`"-"` /
+    unknown metode or bad `tanggal_pemakaian` → `tanggal_cabut_lepas` JSON `null`
+    (not `"0000-00-00"` or `"-"`).
     `jenis_kelamin` is derived from NIK digits 7–8: 01–31 → `Laki-laki`,
     41–71 → `Perempuan`, else `"-"`.
     If `nama_pasangan` equals `nama_lengkap` (trim, case-insensitive) → `"-"`.
@@ -215,7 +218,7 @@ components:
 
   examples:
     AkseptorExample:
-      summary: Sample flat snake_case akseptor response
+      summary: Metode empty → tanggal_cabut_lepas null
       value:
         nik: '3202374707880005'
         nama_lengkap: ATIKAH
@@ -226,6 +229,18 @@ components:
         metode_kontrasepsi: '-'
         tanggal_pemakaian: '2026-09-29'
         tanggal_cabut_lepas: null
+    AkseptorComputedCabutLepas:
+      summary: Suntikan 1 Bulanan → +1 month
+      value:
+        nik: '3202374707880005'
+        nama_lengkap: ATIKAH
+        tanggal_lahir: '1988-07-07'
+        jenis_kelamin: Perempuan
+        nama_pasangan: MUHAMMAD RAFIL
+        asuransi: BPJS Kesehatan
+        metode_kontrasepsi: Suntikan 1 Bulanan
+        tanggal_pemakaian: '2026-09-29'
+        tanggal_cabut_lepas: '2026-10-29'
 
   schemas:
     HealthOk:
@@ -324,7 +339,12 @@ components:
           type: string
           nullable: true
           description: |
-            From SIGA `TanggalJatuhTempo` (latest non-null for NIK) as
-            `YYYY-MM-DD`, or JSON `null` when empty/missing/unparseable/SIGA fail
-            (never `"0000-00-00"` or `"-"`).
-          example: null
+            Computed from `metode_kontrasepsi` + `tanggal_pemakaian` (calendar
+            add; preferred over SIGA `TanggalJatuhTempo`). Offsets (MV labels,
+            case-insensitive trim): Pil Kombinasi +1mo; Suntikan 3 Bulanan
+            Progestin +3mo; Suntikan 3 Bulanan Kombinasi +1mo; Implan 1/2 Batang
+            +3y; Kondom +1mo; Tubektomi/Vasektomi +10y; IUD / IUD (Post Parfum)
+            / IUD (Post Partum) +8y; Pil Progestin +1mo; Suntikan 1 Bulanan
+            +1mo. Empty/`"-"` / unknown metode or bad `tanggal_pemakaian` →
+            JSON `null` (never `"0000-00-00"` or `"-"`).
+          example: '2026-10-29'

@@ -129,6 +129,63 @@ function metodeKontrasepsi(row) {
 }
 
 /**
+ * Duration offsets keyed by lowercased, trimmed MV `jenisalokon` labels.
+ * Values are calendar months to add to `tanggal_pemakaian`.
+ * "IUD (Post Partum)" accepted as alias of data label "IUD (Post Parfum)".
+ */
+const METODE_CABUT_LEPAS_MONTHS = new Map([
+  ['pil kombinasi', 1],
+  ['suntikan 3 bulanan progestin', 3],
+  ['suntikan 3 bulanan kombinasi', 1],
+  ['implan 1 batang', 36],
+  ['kondom', 1],
+  ['tubektomi', 120],
+  ['iud', 96],
+  ['implan 2 batang', 36],
+  ['pil progestin', 1],
+  ['vasektomi', 120],
+  ['iud (post parfum)', 96],
+  ['iud (post partum)', 96],
+  ['suntikan 1 bulanan', 1],
+]);
+
+/**
+ * Calendar-add months to a YYYY-MM-DD date (clamp day to last day of target month).
+ * @param {string} ymd
+ * @param {number} months
+ * @returns {string}
+ */
+function addCalendarMonths(ymd, months) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const total = y * 12 + (m - 1) + months;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  const lastDay = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+  const nd = Math.min(d, lastDay);
+  return `${ny}-${pad2(nm)}-${pad2(nd)}`;
+}
+
+/**
+ * Compute tanggal_cabut_lepas from metode_kontrasepsi + tanggal_pemakaian.
+ * Prefers this over SIGA TanggalJatuhTempo. Empty/"-" metode, unknown metode,
+ * or bad tanggal_pemakaian → null.
+ *
+ * @param {string} metode — already trimmed label or "-"
+ * @param {string|Date|null|undefined} tanggalPemakaian — date-like or YYYY-MM-DD
+ * @returns {string|null} YYYY-MM-DD or null
+ */
+function tanggalCabutLepasFromMetode(metode, tanggalPemakaian) {
+  if (metode == null) return null;
+  const key = String(metode).trim().toLowerCase();
+  if (!key || key === '-') return null;
+  const months = METODE_CABUT_LEPAS_MONTHS.get(key);
+  if (months == null) return null;
+  const ymd = formatDateYmd(tanggalPemakaian);
+  if (!ymd) return null;
+  return addCalendarMonths(ymd, months);
+}
+
+/**
  * jenis_kelamin from NIK digits 7–8 (1-based; string index 6–7).
  * 01–31 → "Laki-laki"; 41–71 → "Perempuan" (calendar day = value − 40); else "-".
  */
@@ -154,7 +211,7 @@ function resolveNamaPasangan(namaLengkap, namaPasangan) {
 
 /**
  * @param {object} row — raw MV row
- * @param {{ namaPasangan?: string|null, tanggalCabutLepas?: string|Date|null }} siga
+ * @param {{ namaPasangan?: string|null }} siga
  * @param {string} [nik] — used to derive jenis_kelamin
  */
 function mapDataRow(row, siga = {}, nik = '') {
@@ -163,22 +220,27 @@ function mapDataRow(row, siga = {}, nik = '') {
     nama_lengkap,
     dash(siga.namaPasangan)
   );
+  const metode_kontrasepsi = metodeKontrasepsi(row);
+  const tanggalPemakaianRaw = col(row, 'tanggalkb');
   return {
     nama_lengkap,
     tanggal_lahir: dashDate(col(row, 'tanggal_lahir')),
     jenis_kelamin: jenisKelaminFromNik(nik),
     nama_pasangan,
     asuransi: dash(col(row, 'penggunaanasuransi')),
-    metode_kontrasepsi: metodeKontrasepsi(row),
-    tanggal_pemakaian: dashDate(col(row, 'tanggalkb')),
-    tanggal_cabut_lepas: nullDate(siga.tanggalCabutLepas),
+    metode_kontrasepsi,
+    tanggal_pemakaian: dashDate(tanggalPemakaianRaw),
+    tanggal_cabut_lepas: tanggalCabutLepasFromMetode(
+      metode_kontrasepsi,
+      tanggalPemakaianRaw
+    ),
   };
 }
 
 /**
  * @param {string} nik
  * @param {object[]} rows — raw MV rows for one NIK
- * @param {{ namaPasangan?: string|null, tanggalCabutLepas?: string|Date|null }} [siga]
+ * @param {{ namaPasangan?: string|null }} [siga]
  */
 function mapAkseptorResponse(nik, rows, siga = {}) {
   const newest = sortRowsNewestFirst(rows)[0];
@@ -193,6 +255,9 @@ module.exports = {
   mapDataRow,
   jenisKelaminFromNik,
   resolveNamaPasangan,
+  tanggalCabutLepasFromMetode,
+  addCalendarMonths,
+  METODE_CABUT_LEPAS_MONTHS,
   sortRowsNewestFirst,
   parseTanggalKb,
   formatDateYmd,

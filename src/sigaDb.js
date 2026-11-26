@@ -31,7 +31,7 @@ if (!missing) {
   attachPoolErrorHandler(pool, 'siga-db');
 } else {
   console.warn(
-    '[siga-db] pool not created; nama_pasangan will be "-", tanggal_cabut_lepas will be null'
+    '[siga-db] pool not created; nama_pasangan will be "-"'
   );
 }
 
@@ -46,19 +46,21 @@ function trimOrNull(value) {
  * Never throws: returns nulls on missing pool / no row / query failure.
  *
  * - namaPasangan: latest non-empty NamaSuami (Tanggal desc, Created desc)
- * - tanggalCabutLepas: latest non-null TanggalJatuhTempo (same order)
  * - status: `ok` | `fail` | `skip` (no pool / missing env)
  * - error: short reason when status is `fail`
  *
+ * `tanggal_cabut_lepas` is computed from MV metode + tanggal_pemakaian
+ * (not from SIGA TanggalJatuhTempo).
+ *
  * @param {string} nik
- * @returns {Promise<{ namaPasangan: string|null, tanggalCabutLepas: *, status: 'ok'|'fail'|'skip', error?: string }>}
+ * @returns {Promise<{ namaPasangan: string|null, status: 'ok'|'fail'|'skip', error?: string }>}
  */
 async function findSigaEnrichment(nik) {
-  const empty = { namaPasangan: null, tanggalCabutLepas: null, status: 'skip' };
+  const empty = { namaPasangan: null, status: 'skip' };
   if (!pool) return empty;
 
   const sql = `
-    SELECT "NamaSuami", "TanggalJatuhTempo"
+    SELECT "NamaSuami"
     FROM ${TABLE}
     WHERE "NIK" = $1
     ORDER BY "Tanggal" DESC, "Created" DESC NULLS LAST
@@ -68,23 +70,18 @@ async function findSigaEnrichment(nik) {
   try {
     const result = await pool.query(sql, [nik]);
     let namaPasangan = null;
-    let tanggalCabutLepas = null;
     for (const row of result.rows) {
-      if (namaPasangan == null) {
-        const name = trimOrNull(row.NamaSuami);
-        if (name) namaPasangan = name;
+      const name = trimOrNull(row.NamaSuami);
+      if (name) {
+        namaPasangan = name;
+        break;
       }
-      if (tanggalCabutLepas == null && row.TanggalJatuhTempo != null) {
-        tanggalCabutLepas = row.TanggalJatuhTempo;
-      }
-      if (namaPasangan != null && tanggalCabutLepas != null) break;
     }
-    return { namaPasangan, tanggalCabutLepas, status: 'ok' };
+    return { namaPasangan, status: 'ok' };
   } catch (err) {
     const message = err && err.message ? String(err.message) : 'unknown error';
     return {
       namaPasangan: null,
-      tanggalCabutLepas: null,
       status: 'fail',
       error: message,
     };
