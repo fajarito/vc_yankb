@@ -1,10 +1,14 @@
 openapi: 3.0.3
 info:
   title: Yan KB API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     Lean Express API for hasil pelayanan KB (family planning service results)
     by NIK from Postgres MV `sigabaru.mv_bnba_akseptor_2026`.
+
+    Response is flat snake_case rows under `data[]`. SIGA (`BKKBN_SIGA`)
+    enriches `nama_pasangan` (`NamaSuami`) and `tanggal_cabut_lepas`
+    (`TanggalJatuhTempo`). Empty/missing values are `"-"`.
 
     Call `/api/kb/*` with header `X-API-Key` matching env `API_KEY`.
     `GET /health` and `GET /api/docs` are public.
@@ -48,10 +52,10 @@ paths:
       tags: [kb]
       summary: Get KB akseptor by NIK (path)
       description: |
-        Returns personal biodata once (`pribadi`), all service rows as
-        `layanan[]` sorted by `tanggalKb` descending, plus `meta`.
-        NIK must be exactly 16 digits and must not be 16 identical digits
-        (e.g. `0000000000000000` or `9999999999999999`).
+        Returns `{ nik, data[], meta }` where each `data` item is one layanan
+        row (newest `tanggal_pemakaian` first), flat snake_case. Empty fields
+        are `"-"`. NIK must be exactly 16 digits and must not be 16 identical
+        digits (e.g. `0000000000000000` or `9999999999999999`).
       security:
         - ApiKeyAuth: []
       parameters:
@@ -207,49 +211,21 @@ components:
 
   examples:
     AkseptorExample:
-      summary: Sample akseptor response
+      summary: Sample flat snake_case akseptor response
       value:
         nik: '3202374707880005'
-        pribadi:
-          nama: ATIKAH
-          tanggalLahir: '1988-07-07'
-          stsKawin: null
-          hubunganDenganKk: 1
-          kki: '32023720040008003S00002'
-          wilayah:
-            idProv: 12
-            kodeProv: '32'
-            namaProv: JAWA BARAT
-            idKab: 148
-            kodeKab: '02'
-            namaKab: SUKABUMI
-            idKec: 423
-            kodeKec: '37'
-            namaKec: PABUARAN
-            idKel: 3694
-            kodeKel: '2004'
-            namaKel: BANTARSARI
-        layanan:
-          - tahun: '2026'
-            bulan: 9
-            tanggalKb: '2026-09-29'
-            statusPesertaKb: Peserta KB Ulangan
-            jenisTindakan: null
-            jenisAlokon: null
-            informedConsent: '01'
-            pelayananPascaPersalinan: ''
-            pelayananPascaKeguguran: ''
-            kasusKomplikasiBerat: ''
-            kasusKegagalan: ''
-            penggunaanAsuransi: BPJS Kesehatan
-            sumberAlokon: APBN
-            jsKodeSatuSehat: null
-            tempatPelayanan:
-              id: '320206103'
-              nama: POLINDES BANTARSARI
+        data:
+          - nama_lengkap: ATIKAH
+            tanggal_lahir: '1988-07-07'
+            jenis_kelamin: '-'
+            nama_pasangan: MUHAMMAD RAFIL
+            asuransi: BPJS Kesehatan
+            metode_kontrasepsi: '-'
+            tanggal_pemakaian: '2026-09-29'
+            tanggal_cabut_lepas: '-'
         meta:
-          jumlahLayanan: 1
-          diurutkan: tanggalKb desc
+          jumlah: 1
+          diurutkan: tanggal_pemakaian desc
 
   schemas:
     HealthOk:
@@ -293,151 +269,75 @@ components:
           type: string
           description: Human-readable explanation of the rule or outcome
 
-    Wilayah:
+    AkseptorDataRow:
       type: object
+      required:
+        - nama_lengkap
+        - tanggal_lahir
+        - jenis_kelamin
+        - nama_pasangan
+        - asuransi
+        - metode_kontrasepsi
+        - tanggal_pemakaian
+        - tanggal_cabut_lepas
       properties:
-        idProv:
-          type: integer
-          nullable: true
-        kodeProv:
+        nama_lengkap:
           type: string
-          nullable: true
-        namaProv:
+          description: From MV `NamaPesertaKB`
+          example: ATIKAH
+        tanggal_lahir:
           type: string
-          nullable: true
-        idKab:
-          type: integer
-          nullable: true
-        kodeKab:
-          type: string
-          nullable: true
-        namaKab:
-          type: string
-          nullable: true
-        idKec:
-          type: integer
-          nullable: true
-        kodeKec:
-          type: string
-          nullable: true
-        namaKec:
-          type: string
-          nullable: true
-        idKel:
-          type: integer
-          nullable: true
-        kodeKel:
-          type: string
-          nullable: true
-        namaKel:
-          type: string
-          nullable: true
-
-    Pribadi:
-      type: object
-      properties:
-        nama:
-          type: string
-          nullable: true
-        tanggalLahir:
-          type: string
-          nullable: true
-          format: date
-          description: Date of birth as `YYYY-MM-DD` (no time/Z)
+          description: `YYYY-MM-DD` or `"-"`
           example: '1988-07-07'
-        stsKawin:
-          nullable: true
-        hubunganDenganKk:
-          nullable: true
-        kki:
+        jenis_kelamin:
           type: string
-          nullable: true
-        wilayah:
-          $ref: '#/components/schemas/Wilayah'
-
-    TempatPelayanan:
-      type: object
-      properties:
-        id:
+          description: |
+            From MV gender column if present; current MV has none → `"-"`.
+          example: '-'
+        nama_pasangan:
           type: string
-          nullable: true
-        nama:
+          description: |
+            From SIGA `NamaSuami` (latest non-empty). Missing/SIGA fail → `"-"`.
+          example: MUHAMMAD RAFIL
+        asuransi:
           type: string
-          nullable: true
-
-    Layanan:
-      type: object
-      properties:
-        tahun:
+          description: From MV `penggunaanasuransi`
+          example: BPJS Kesehatan
+        metode_kontrasepsi:
           type: string
-          nullable: true
-        bulan:
-          type: integer
-          nullable: true
-        tanggalKb:
+          description: Prefer MV `jenisalokon`, else `jenistindakan`, else `"-"`
+          example: Suntikan 1 Bulanan
+        tanggal_pemakaian:
           type: string
-          nullable: true
-          format: date
-          description: KB service date as `YYYY-MM-DD` (no time/Z)
+          description: From MV `tanggalkb` as `YYYY-MM-DD` or `"-"`
           example: '2026-09-29'
-        statusPesertaKb:
+        tanggal_cabut_lepas:
           type: string
-          nullable: true
-        jenisTindakan:
-          type: string
-          nullable: true
-        jenisAlokon:
-          type: string
-          nullable: true
-        informedConsent:
-          type: string
-          nullable: true
-        pelayananPascaPersalinan:
-          type: string
-          nullable: true
-        pelayananPascaKeguguran:
-          type: string
-          nullable: true
-        kasusKomplikasiBerat:
-          type: string
-          nullable: true
-        kasusKegagalan:
-          type: string
-          nullable: true
-        penggunaanAsuransi:
-          type: string
-          nullable: true
-        sumberAlokon:
-          type: string
-          nullable: true
-        jsKodeSatuSehat:
-          type: string
-          nullable: true
-        tempatPelayanan:
-          $ref: '#/components/schemas/TempatPelayanan'
+          description: |
+            From SIGA `TanggalJatuhTempo` (latest non-null for NIK) as
+            `YYYY-MM-DD`, or `"-"`.
+          example: '-'
 
     Meta:
       type: object
       properties:
-        jumlahLayanan:
+        jumlah:
           type: integer
         diurutkan:
           type: string
-          example: tanggalKb desc
+          example: tanggal_pemakaian desc
 
     AkseptorResponse:
       type: object
-      required: [nik, pribadi, layanan, meta]
+      required: [nik, data, meta]
       properties:
         nik:
           type: string
           pattern: '^\d{16}$'
           description: Exactly 16 digits; never all identical
-        pribadi:
-          $ref: '#/components/schemas/Pribadi'
-        layanan:
+        data:
           type: array
           items:
-            $ref: '#/components/schemas/Layanan'
+            $ref: '#/components/schemas/AkseptorDataRow'
         meta:
           $ref: '#/components/schemas/Meta'

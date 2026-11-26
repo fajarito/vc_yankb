@@ -1,5 +1,6 @@
 const express = require('express');
 const { query } = require('../db');
+const { findSigaEnrichment } = require('../sigaDb');
 const { mapAkseptorResponse } = require('../mapAkseptor');
 
 const router = express.Router();
@@ -72,7 +73,9 @@ router.get('/akseptor/:nik?', async (req, res) => {
       });
     }
 
-    return res.json(mapAkseptorResponse(check.nik, rows));
+    // SIGA lookup is best-effort; findSigaEnrichment never throws.
+    const siga = await findSigaEnrichment(check.nik);
+    return res.json(mapAkseptorResponse(check.nik, rows, siga));
   } catch (err) {
     console.error('[kb] query failed', err.message);
     return res.status(500).json({ error: 'Database query failed' });

@@ -1,7 +1,6 @@
 /**
- * Map MV rows → { nik, pribadi, layanan[], meta }.
- * Field names follow the approved camelCase design.
- * Date fields in JSON are always `YYYY-MM-DD` (no time/Z).
+ * Map MV rows → { nik, data[], meta } flat snake_case rows.
+ * Empty / missing values → "-". Dates → YYYY-MM-DD or "-".
  */
 
 function col(row, ...names) {
@@ -75,6 +74,17 @@ function formatDateYmd(raw) {
   return null;
 }
 
+/** Empty / missing → "-". */
+function dash(value) {
+  if (value == null) return '-';
+  const trimmed = String(value).trim();
+  return trimmed || '-';
+}
+
+function dashDate(raw) {
+  return dash(formatDateYmd(raw));
+}
+
 /** Parse date-like value → UTC midnight timestamp ms, or null. */
 function parseTanggalKb(raw) {
   const ymd = formatDateYmd(raw);
@@ -98,75 +108,75 @@ function sortRowsNewestFirst(rows) {
   return [...rows].sort((a, b) => sortKey(b) - sortKey(a));
 }
 
-function mapPribadi(row) {
-  return {
-    nama: col(row, 'NamaPesertaKB'),
-    tanggalLahir: formatDateYmd(col(row, 'tanggal_lahir')),
-    stsKawin: col(row, 'sts_kawin'),
-    hubunganDenganKk: col(row, 'hubungan_dengan_kk'),
-    kki: col(row, 'kki'),
-    wilayah: {
-      idProv: col(row, 'idprov'),
-      kodeProv: col(row, 'kodeprov'),
-      namaProv: col(row, 'namaprov'),
-      idKab: col(row, 'idkab'),
-      kodeKab: col(row, 'kodekab'),
-      namaKab: col(row, 'namakab'),
-      idKec: col(row, 'idkec'),
-      kodeKec: col(row, 'kodekec'),
-      namaKec: col(row, 'namakec'),
-      idKel: col(row, 'idkel'),
-      kodeKel: col(row, 'kodekel'),
-      namaKel: col(row, 'namakel'),
-    },
-  };
+/**
+ * metode_kontrasepsi: prefer jenisalokon, else jenistindakan.
+ */
+function metodeKontrasepsi(row) {
+  const alokon = col(row, 'jenisalokon');
+  if (alokon != null && String(alokon).trim()) return String(alokon).trim();
+  const tindakan = col(row, 'jenistindakan');
+  if (tindakan != null && String(tindakan).trim()) return String(tindakan).trim();
+  return '-';
 }
 
-function mapLayanan(row) {
+/**
+ * jenis_kelamin: only if MV exposes a gender column; sample MV has none → "-".
+ */
+function jenisKelamin(row) {
+  return dash(
+    col(
+      row,
+      'jenis_kelamin',
+      'JenisKelamin',
+      'jeniskelamin',
+      'jk',
+      'JK',
+      'sex',
+      'gender'
+    )
+  );
+}
+
+/**
+ * @param {object} row — raw MV row
+ * @param {{ namaPasangan?: string|null, tanggalCabutLepas?: string|Date|null }} siga
+ */
+function mapDataRow(row, siga = {}) {
   return {
-    tahun: col(row, 'Tahun', 'tahun'),
-    bulan: col(row, 'Bulan', 'bulan'),
-    tanggalKb: formatDateYmd(col(row, 'tanggalkb')),
-    statusPesertaKb: col(row, 'statuspesertakb'),
-    jenisTindakan: col(row, 'jenistindakan'),
-    jenisAlokon: col(row, 'jenisalokon'),
-    informedConsent: col(row, 'InformedConsent'),
-    pelayananPascaPersalinan: col(row, 'PelayananPascaPersalinan'),
-    pelayananPascaKeguguran: col(row, 'PelayananPascaKeguguran'),
-    kasusKomplikasiBerat: col(row, 'KasusKomplikasiBerat'),
-    kasusKegagalan: col(row, 'KasusKegagalan'),
-    penggunaanAsuransi: col(row, 'penggunaanasuransi'),
-    sumberAlokon: col(row, 'sumberalokon'),
-    jsKodeSatuSehat: col(row, 'JS_KodeSatuSehat'),
-    tempatPelayanan: {
-      id: col(row, 'TempatPelayananKBID'),
-      nama: col(row, 'NamaTempatPelayananKB'),
-    },
+    nama_lengkap: dash(col(row, 'NamaPesertaKB')),
+    tanggal_lahir: dashDate(col(row, 'tanggal_lahir')),
+    jenis_kelamin: jenisKelamin(row),
+    nama_pasangan: dash(siga.namaPasangan),
+    asuransi: dash(col(row, 'penggunaanasuransi')),
+    metode_kontrasepsi: metodeKontrasepsi(row),
+    tanggal_pemakaian: dashDate(col(row, 'tanggalkb')),
+    tanggal_cabut_lepas: dashDate(siga.tanggalCabutLepas),
   };
 }
 
 /**
  * @param {string} nik
  * @param {object[]} rows — raw MV rows for one NIK
+ * @param {{ namaPasangan?: string|null, tanggalCabutLepas?: string|Date|null }} [siga]
  */
-function mapAkseptorResponse(nik, rows) {
+function mapAkseptorResponse(nik, rows, siga = {}) {
   const sorted = sortRowsNewestFirst(rows);
-  const newest = sorted[0];
   return {
     nik,
-    pribadi: mapPribadi(newest),
-    layanan: sorted.map(mapLayanan),
+    data: sorted.map((row) => mapDataRow(row, siga)),
     meta: {
-      jumlahLayanan: sorted.length,
-      diurutkan: 'tanggalKb desc',
+      jumlah: sorted.length,
+      diurutkan: 'tanggal_pemakaian desc',
     },
   };
 }
 
 module.exports = {
   mapAkseptorResponse,
+  mapDataRow,
   sortRowsNewestFirst,
   parseTanggalKb,
   formatDateYmd,
+  dash,
   col,
 };
