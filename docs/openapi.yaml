@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Yan KB API
-  version: 1.6.0
+  version: 1.7.0
   description: |
     Lean Express API for hasil pelayanan KB (family planning service results)
     by NIK from Postgres MV `sigabaru.mv_bnba_akseptor_2026`.
@@ -13,8 +13,8 @@ info:
     `TanggalJatuhTempo`). Empty/missing string fields are `"-"`; empty/`"-"` /
     unknown metode or bad `tanggal_pemakaian` → `tanggal_cabut_lepas` JSON `null`
     (not `"0000-00-00"` or `"-"`).
-    `jenis_kelamin` is derived from NIK digits 7–8: 01–31 → `Laki-laki`,
-    41–71 → `Perempuan`, else `"-"`.
+    `jenis_kelamin` is derived from NIK digits 7–8: 01–31 → `LAKI-LAKI`,
+    41–71 → `PEREMPUAN`, else `"-"`.
     If `nama_pasangan` equals `nama_lengkap` (trim, case-insensitive) → `"-"`.
 
     Call `/api/kb/*` with header `X-API-Key` matching env `API_KEY`.
@@ -223,7 +223,7 @@ components:
         nik: '3202374707880005'
         nama_lengkap: ATIKAH
         tanggal_lahir: '1988-07-07'
-        jenis_kelamin: Perempuan
+        jenis_kelamin: PEREMPUAN
         nama_pasangan: MUHAMMAD RAFIL
         asuransi: BPJS Kesehatan
         metode_kontrasepsi: '-'
@@ -235,7 +235,7 @@ components:
         nik: '3202374707880005'
         nama_lengkap: ATIKAH
         tanggal_lahir: '1988-07-07'
-        jenis_kelamin: Perempuan
+        jenis_kelamin: PEREMPUAN
         nama_pasangan: MUHAMMAD RAFIL
         asuransi: BPJS Kesehatan
         metode_kontrasepsi: Suntikan 1 Bulanan
@@ -313,10 +313,11 @@ components:
         jenis_kelamin:
           type: string
           description: |
-            From NIK digits 7–8 (1-based): `01`–`31` → `Laki-laki`;
-            `41`–`71` → `Perempuan` (calendar day = value − 40); else `"-"`.
-          enum: [Laki-laki, Perempuan, '-']
-          example: Perempuan
+            From NIK digits 7–8 (1-based): `01`–`31` → `LAKI-LAKI`;
+            `41`–`71` → `PEREMPUAN` (calendar day = value − 40).
+            Unknown / invalid day code → `"-"` (not listed in enum).
+          enum: [LAKI-LAKI, PEREMPUAN]
+          example: PEREMPUAN
         nama_pasangan:
           type: string
           description: |
