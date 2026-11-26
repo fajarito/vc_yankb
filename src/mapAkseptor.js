@@ -138,15 +138,30 @@ function jenisKelamin(row) {
 }
 
 /**
+ * If nama_pasangan equals nama_lengkap (trim + case-insensitive), use "-".
+ * Both args are already dash()-normalized (trimmed).
+ */
+function resolveNamaPasangan(namaLengkap, namaPasangan) {
+  if (namaPasangan === '-') return '-';
+  if (namaPasangan.toLowerCase() === namaLengkap.toLowerCase()) return '-';
+  return namaPasangan;
+}
+
+/**
  * @param {object} row — raw MV row
  * @param {{ namaPasangan?: string|null, tanggalCabutLepas?: string|Date|null }} siga
  */
 function mapDataRow(row, siga = {}) {
+  const nama_lengkap = dash(col(row, 'NamaPesertaKB'));
+  const nama_pasangan = resolveNamaPasangan(
+    nama_lengkap,
+    dash(siga.namaPasangan)
+  );
   return {
-    nama_lengkap: dash(col(row, 'NamaPesertaKB')),
+    nama_lengkap,
     tanggal_lahir: dashDate(col(row, 'tanggal_lahir')),
     jenis_kelamin: jenisKelamin(row),
-    nama_pasangan: dash(siga.namaPasangan),
+    nama_pasangan,
     asuransi: dash(col(row, 'penggunaanasuransi')),
     metode_kontrasepsi: metodeKontrasepsi(row),
     tanggal_pemakaian: dashDate(col(row, 'tanggalkb')),

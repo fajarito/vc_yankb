@@ -9,6 +9,7 @@ info:
     Response is a single flat snake_case object for the latest layanan row.
     SIGA (`BKKBN_SIGA`) enriches `nama_pasangan` (`NamaSuami`) and
     `tanggal_cabut_lepas` (`TanggalJatuhTempo`). Empty/missing values are `"-"`.
+    If `nama_pasangan` equals `nama_lengkap` (trim, case-insensitive) → `"-"`.
 
     Call `/api/kb/*` with header `X-API-Key` matching env `API_KEY`.
     `GET /health` and `GET /api/docs` are public.
@@ -300,6 +301,7 @@ components:
           type: string
           description: |
             From SIGA `NamaSuami` (latest non-empty). Missing/SIGA fail → `"-"`.
+            If equal to `nama_lengkap` (trim, case-insensitive) → `"-"`.
           example: MUHAMMAD RAFIL
         asuransi:
           type: string
