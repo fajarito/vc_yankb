@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { attachPoolErrorHandler } = require('./poolError');
 
 const required = ['DB_HOST', 'DB_USER', 'DB_PASSWORD'];
 for (const key of required) {
@@ -19,9 +20,7 @@ const pool = new Pool({
   connectionTimeoutMillis: 10_000,
 });
 
-pool.on('error', (err) => {
-  console.error('[db] unexpected pool error', err.message);
-});
+attachPoolErrorHandler(pool, 'db');
 
 async function query(text, params) {
   return pool.query(text, params);

@@ -43,6 +43,30 @@ function validateNik(nik) {
   return { ok: true, nik };
 }
 
+/** Mask NIK for logs: keep first 4 + last 4 digits. */
+function maskNik(nik) {
+  const s = String(nik || '');
+  if (s.length !== 16) return '****';
+  return `${s.slice(0, 4)}********${s.slice(-4)}`;
+}
+
+/**
+ * One structured line per GET /api/kb/akseptor.
+ * mv: hit|miss|skip|error — siga: ok|fail|skip
+ */
+function logAkseptorRequest({ nik, status, durationMs, mv, siga, error }) {
+  const parts = [
+    '[kb.akseptor]',
+    `nik=${nik}`,
+    `status=${status}`,
+    `duration_ms=${durationMs}`,
+    `mv=${mv}`,
+    `siga=${siga}`,
+  ];
+  if (error) parts.push(`error=${JSON.stringify(String(error))}`);
+  console.log(parts.join(' '));
+}
+
 async function findAkseptorByNik(nik) {
   // Quote "NIK" — column is case-sensitive in the materialized view.
   const sql = `
@@ -55,30 +79,62 @@ async function findAkseptorByNik(nik) {
 }
 
 router.get('/akseptor/:nik?', async (req, res) => {
+  const started = Date.now();
+  let nikMasked = '-';
+  let mv = 'skip';
+  let siga = 'skip';
+  let errorReason;
+
+  const respond = (status, body) => {
+    logAkseptorRequest({
+      nik: nikMasked,
+      status,
+      durationMs: Date.now() - started,
+      mv,
+      siga,
+      error: errorReason,
+    });
+    return res.status(status).json(body);
+  };
+
   try {
     const nikRaw = req.params.nik ?? req.query.nik;
     const check = validateNik(normalizeNik(nikRaw));
     if (!check.ok) {
-      return res.status(check.status).json({
+      errorReason = check.message;
+      return respond(check.status, {
         error: check.error,
         message: check.message,
       });
     }
 
+    nikMasked = maskNik(check.nik);
+
     const rows = await findAkseptorByNik(check.nik);
     if (!rows.length) {
-      return res.status(404).json({
+      mv = 'miss';
+      errorReason = 'Tidak ditemukan';
+      return respond(404, {
         error: 'Tidak ditemukan',
         message: 'Data akseptor untuk NIK tersebut tidak ditemukan',
       });
     }
 
+    mv = 'hit';
+
     // SIGA lookup is best-effort; findSigaEnrichment never throws.
-    const siga = await findSigaEnrichment(check.nik);
-    return res.json(mapAkseptorResponse(check.nik, rows, siga));
+    const enrich = await findSigaEnrichment(check.nik);
+    siga = enrich.status;
+    if (enrich.status === 'fail' && enrich.error) {
+      errorReason = enrich.error;
+    }
+
+    return respond(200, mapAkseptorResponse(check.nik, rows, enrich));
   } catch (err) {
-    console.error('[kb] query failed', err.message);
-    return res.status(500).json({ error: 'Database query failed' });
+    mv = 'error';
+    errorReason = err && err.message ? err.message : 'unknown error';
+    console.error('[kb] query failed', errorReason);
+    return respond(500, { error: 'Database query failed' });
   }
 });
 
