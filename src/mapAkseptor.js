@@ -1,5 +1,5 @@
 /**
- * Map MV rows → { nik, data[], meta } flat snake_case rows.
+ * Map MV rows → one flat snake_case object (latest layanan for NIK).
  * Empty / missing values → "-". Dates → YYYY-MM-DD or "-".
  */
 
@@ -160,14 +160,10 @@ function mapDataRow(row, siga = {}) {
  * @param {{ namaPasangan?: string|null, tanggalCabutLepas?: string|Date|null }} [siga]
  */
 function mapAkseptorResponse(nik, rows, siga = {}) {
-  const sorted = sortRowsNewestFirst(rows);
+  const newest = sortRowsNewestFirst(rows)[0];
   return {
     nik,
-    data: sorted.map((row) => mapDataRow(row, siga)),
-    meta: {
-      jumlah: sorted.length,
-      diurutkan: 'tanggal_pemakaian desc',
-    },
+    ...mapDataRow(newest, siga),
   };
 }
 

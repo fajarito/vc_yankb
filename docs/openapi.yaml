@@ -1,14 +1,14 @@
 openapi: 3.0.3
 info:
   title: Yan KB API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     Lean Express API for hasil pelayanan KB (family planning service results)
     by NIK from Postgres MV `sigabaru.mv_bnba_akseptor_2026`.
 
-    Response is flat snake_case rows under `data[]`. SIGA (`BKKBN_SIGA`)
-    enriches `nama_pasangan` (`NamaSuami`) and `tanggal_cabut_lepas`
-    (`TanggalJatuhTempo`). Empty/missing values are `"-"`.
+    Response is a single flat snake_case object for the latest layanan row.
+    SIGA (`BKKBN_SIGA`) enriches `nama_pasangan` (`NamaSuami`) and
+    `tanggal_cabut_lepas` (`TanggalJatuhTempo`). Empty/missing values are `"-"`.
 
     Call `/api/kb/*` with header `X-API-Key` matching env `API_KEY`.
     `GET /health` and `GET /api/docs` are public.
@@ -52,10 +52,10 @@ paths:
       tags: [kb]
       summary: Get KB akseptor by NIK (path)
       description: |
-        Returns `{ nik, data[], meta }` where each `data` item is one layanan
-        row (newest `tanggal_pemakaian` first), flat snake_case. Empty fields
-        are `"-"`. NIK must be exactly 16 digits and must not be 16 identical
-        digits (e.g. `0000000000000000` or `9999999999999999`).
+        Returns one flat snake_case object (`nik` + biodata/layanan fields)
+        from the latest layanan row for the NIK. Empty fields are `"-"`.
+        NIK must be exactly 16 digits and must not be 16 identical digits
+        (e.g. `0000000000000000` or `9999999999999999`).
       security:
         - ApiKeyAuth: []
       parameters:
@@ -214,18 +214,14 @@ components:
       summary: Sample flat snake_case akseptor response
       value:
         nik: '3202374707880005'
-        data:
-          - nama_lengkap: ATIKAH
-            tanggal_lahir: '1988-07-07'
-            jenis_kelamin: '-'
-            nama_pasangan: MUHAMMAD RAFIL
-            asuransi: BPJS Kesehatan
-            metode_kontrasepsi: '-'
-            tanggal_pemakaian: '2026-09-29'
-            tanggal_cabut_lepas: '-'
-        meta:
-          jumlah: 1
-          diurutkan: tanggal_pemakaian desc
+        nama_lengkap: ATIKAH
+        tanggal_lahir: '1988-07-07'
+        jenis_kelamin: '-'
+        nama_pasangan: MUHAMMAD RAFIL
+        asuransi: BPJS Kesehatan
+        metode_kontrasepsi: '-'
+        tanggal_pemakaian: '2026-09-29'
+        tanggal_cabut_lepas: '-'
 
   schemas:
     HealthOk:
@@ -269,9 +265,10 @@ components:
           type: string
           description: Human-readable explanation of the rule or outcome
 
-    AkseptorDataRow:
+    AkseptorResponse:
       type: object
       required:
+        - nik
         - nama_lengkap
         - tanggal_lahir
         - jenis_kelamin
@@ -281,9 +278,14 @@ components:
         - tanggal_pemakaian
         - tanggal_cabut_lepas
       properties:
+        nik:
+          type: string
+          pattern: '^\d{16}$'
+          description: Exactly 16 digits; never all identical
+          example: '3202374707880005'
         nama_lengkap:
           type: string
-          description: From MV `NamaPesertaKB`
+          description: From MV `NamaPesertaKB` (latest layanan row)
           example: ATIKAH
         tanggal_lahir:
           type: string
@@ -317,27 +319,3 @@ components:
             From SIGA `TanggalJatuhTempo` (latest non-null for NIK) as
             `YYYY-MM-DD`, or `"-"`.
           example: '-'
-
-    Meta:
-      type: object
-      properties:
-        jumlah:
-          type: integer
-        diurutkan:
-          type: string
-          example: tanggal_pemakaian desc
-
-    AkseptorResponse:
-      type: object
-      required: [nik, data, meta]
-      properties:
-        nik:
-          type: string
-          pattern: '^\d{16}$'
-          description: Exactly 16 digits; never all identical
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/AkseptorDataRow'
-        meta:
-          $ref: '#/components/schemas/Meta'
