@@ -84,7 +84,7 @@ Also accepts query form: `GET /api/kb/akseptor?nik=...`
 - **404** — `{ "error": "Tidak ditemukan", "message": "Data akseptor untuk NIK tersebut tidak ditemukan" }`
 - **500** — primary (MV) database error
 
-NIK column is queried as `"NIK"` (quoted, case-sensitive). Latest row by `tanggalkb` (fallback `Tahun`+`Bulan`). SIGA enrich: latest non-empty `"NamaSuami"` → `nama_pasangan`; latest non-null `"TanggalJatuhTempo"` → `tanggal_cabut_lepas`. `jenis_kelamin` is `"-"` unless the MV exposes a gender column (current sample has none). `metode_kontrasepsi` prefers `jenisalokon`, else `jenistindakan`.
+NIK column is queried as `"NIK"` (quoted, case-sensitive). Latest row by `tanggalkb` (fallback `Tahun`+`Bulan`). SIGA enrich: latest non-empty `"NamaSuami"` → `nama_pasangan`; latest non-null `"TanggalJatuhTempo"` → `tanggal_cabut_lepas`. If `nama_pasangan` equals `nama_lengkap` (trim, case-insensitive) → `"-"`. `jenis_kelamin` is `"-"` unless the MV exposes a gender column (current sample has none). `metode_kontrasepsi` prefers `jenisalokon`, else `jenistindakan`.
 
 ## Example
 
