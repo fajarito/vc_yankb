@@ -98,9 +98,10 @@ function sortRowsNewestFirst(rows) {
   return [...rows].sort((a, b) => sortKey(b) - sortKey(a));
 }
 
-function mapPribadi(row) {
+function mapPribadi(row, namaPasangan = null) {
   return {
     nama: col(row, 'NamaPesertaKB'),
+    namaPasangan: namaPasangan ?? null,
     tanggalLahir: formatDateYmd(col(row, 'tanggal_lahir')),
     stsKawin: col(row, 'sts_kawin'),
     hubunganDenganKk: col(row, 'hubungan_dengan_kk'),
@@ -148,13 +149,14 @@ function mapLayanan(row) {
 /**
  * @param {string} nik
  * @param {object[]} rows — raw MV rows for one NIK
+ * @param {string|null} [namaPasangan] — from BKKBN_SIGA dat_PelayananKBDetil.NamaSuami
  */
-function mapAkseptorResponse(nik, rows) {
+function mapAkseptorResponse(nik, rows, namaPasangan = null) {
   const sorted = sortRowsNewestFirst(rows);
   const newest = sorted[0];
   return {
     nik,
-    pribadi: mapPribadi(newest),
+    pribadi: mapPribadi(newest, namaPasangan),
     layanan: sorted.map(mapLayanan),
     meta: {
       jumlahLayanan: sorted.length,

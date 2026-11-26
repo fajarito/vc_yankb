@@ -5,6 +5,8 @@ info:
   description: |
     Lean Express API for hasil pelayanan KB (family planning service results)
     by NIK from Postgres MV `sigabaru.mv_bnba_akseptor_2026`.
+    `pribadi.namaPasangan` is enriched from `BKKBN_SIGA` →
+    `sigabaru."dat_PelayananKBDetil"."NamaSuami"` when SIGA credentials are set.
 
     Call `/api/kb/*` with header `X-API-Key` matching env `API_KEY`.
     `GET /health` and `GET /api/docs` are public.
@@ -48,8 +50,9 @@ paths:
       tags: [kb]
       summary: Get KB akseptor by NIK (path)
       description: |
-        Returns personal biodata once (`pribadi`), all service rows as
-        `layanan[]` sorted by `tanggalKb` descending, plus `meta`.
+        Returns personal biodata once (`pribadi`, including `namaPasangan`
+        when SIGA is available), all service rows as `layanan[]` sorted by
+        `tanggalKb` descending, plus `meta`.
         NIK must be exactly 16 digits and must not be 16 identical digits
         (e.g. `0000000000000000` or `9999999999999999`).
       security:
@@ -212,6 +215,7 @@ components:
         nik: '3202374707880005'
         pribadi:
           nama: ATIKAH
+          namaPasangan: MUHAMMAD RAFIL
           tanggalLahir: '1988-07-07'
           stsKawin: null
           hubunganDenganKk: 1
@@ -339,6 +343,14 @@ components:
         nama:
           type: string
           nullable: true
+        namaPasangan:
+          type: string
+          nullable: true
+          description: |
+            Spouse name from `BKKBN_SIGA` → `sigabaru."dat_PelayananKBDetil"."NamaSuami"`
+            (latest non-empty by `"Tanggal"` then `"Created"`). `null` if missing or
+            SIGA DB unavailable; never fails the whole request.
+          example: MUHAMMAD RAFIL
         tanggalLahir:
           type: string
           nullable: true
