@@ -84,7 +84,7 @@ Also accepts query form: `GET /api/kb/akseptor?nik=...`
 - **404** — `{ "error": "Tidak ditemukan", "message": "Data akseptor untuk NIK tersebut tidak ditemukan" }`
 - **500** — primary (MV) database error
 
-NIK column is queried as `"NIK"` (quoted, case-sensitive). Latest row by `tanggalkb` (fallback `Tahun`+`Bulan`). SIGA enrich: latest non-empty `"NamaSuami"` → `nama_pasangan`; latest non-null `"TanggalJatuhTempo"` → `tanggal_cabut_lepas`. If `nama_pasangan` equals `nama_lengkap` (trim, case-insensitive) → `"-"`. `jenis_kelamin` is `"-"` unless the MV exposes a gender column (current sample has none). `metode_kontrasepsi` prefers `jenisalokon`, else `jenistindakan`.
+NIK column is queried as `"NIK"` (quoted, case-sensitive). Latest row by `tanggalkb` (fallback `Tahun`+`Bulan`). SIGA enrich: latest non-empty `"NamaSuami"` → `nama_pasangan`; latest non-null `"TanggalJatuhTempo"` → `tanggal_cabut_lepas`. If `nama_pasangan` equals `nama_lengkap` (trim, case-insensitive) → `"-"`. `jenis_kelamin` from NIK digits 7–8: `01`–`31` → `Laki-laki`; `41`–`71` → `Perempuan`; else `"-"`. `metode_kontrasepsi` prefers `jenisalokon`, else `jenistindakan`.
 
 ## Example
 
@@ -108,7 +108,7 @@ Example `200` KB body:
   "nik": "3202374707880005",
   "nama_lengkap": "ATIKAH",
   "tanggal_lahir": "1988-07-07",
-  "jenis_kelamin": "-",
+  "jenis_kelamin": "Perempuan",
   "nama_pasangan": "MUHAMMAD RAFIL",
   "asuransi": "BPJS Kesehatan",
   "metode_kontrasepsi": "-",
@@ -116,6 +116,14 @@ Example `200` KB body:
   "tanggal_cabut_lepas": "-"
 }
 ```
+
+`jenis_kelamin` examples (digits 7–8):
+
+| NIK | Digits 7–8 | `jenis_kelamin` |
+|-----|------------|-----------------|
+| `3202370707880001` | `07` | `Laki-laki` |
+| `3202374707880005` | `47` | `Perempuan` |
+| `3202379907880001` | `99` | `-` |
 
 ## OpenShift deploy
 

@@ -120,21 +120,17 @@ function metodeKontrasepsi(row) {
 }
 
 /**
- * jenis_kelamin: only if MV exposes a gender column; sample MV has none → "-".
+ * jenis_kelamin from NIK digits 7–8 (1-based; string index 6–7).
+ * 01–31 → "Laki-laki"; 41–71 → "Perempuan" (calendar day = value − 40); else "-".
  */
-function jenisKelamin(row) {
-  return dash(
-    col(
-      row,
-      'jenis_kelamin',
-      'JenisKelamin',
-      'jeniskelamin',
-      'jk',
-      'JK',
-      'sex',
-      'gender'
-    )
-  );
+function jenisKelaminFromNik(nik) {
+  const s = String(nik ?? '');
+  if (!/^\d{16}$/.test(s)) return '-';
+  const dayCode = Number(s.slice(6, 8));
+  if (!Number.isFinite(dayCode)) return '-';
+  if (dayCode >= 1 && dayCode <= 31) return 'Laki-laki';
+  if (dayCode >= 41 && dayCode <= 71) return 'Perempuan';
+  return '-';
 }
 
 /**
@@ -150,8 +146,9 @@ function resolveNamaPasangan(namaLengkap, namaPasangan) {
 /**
  * @param {object} row — raw MV row
  * @param {{ namaPasangan?: string|null, tanggalCabutLepas?: string|Date|null }} siga
+ * @param {string} [nik] — used to derive jenis_kelamin
  */
-function mapDataRow(row, siga = {}) {
+function mapDataRow(row, siga = {}, nik = '') {
   const nama_lengkap = dash(col(row, 'NamaPesertaKB'));
   const nama_pasangan = resolveNamaPasangan(
     nama_lengkap,
@@ -160,7 +157,7 @@ function mapDataRow(row, siga = {}) {
   return {
     nama_lengkap,
     tanggal_lahir: dashDate(col(row, 'tanggal_lahir')),
-    jenis_kelamin: jenisKelamin(row),
+    jenis_kelamin: jenisKelaminFromNik(nik),
     nama_pasangan,
     asuransi: dash(col(row, 'penggunaanasuransi')),
     metode_kontrasepsi: metodeKontrasepsi(row),
@@ -178,13 +175,15 @@ function mapAkseptorResponse(nik, rows, siga = {}) {
   const newest = sortRowsNewestFirst(rows)[0];
   return {
     nik,
-    ...mapDataRow(newest, siga),
+    ...mapDataRow(newest, siga, nik),
   };
 }
 
 module.exports = {
   mapAkseptorResponse,
   mapDataRow,
+  jenisKelaminFromNik,
+  resolveNamaPasangan,
   sortRowsNewestFirst,
   parseTanggalKb,
   formatDateYmd,
