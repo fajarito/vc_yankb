@@ -1,6 +1,6 @@
 # vc_yankb
 
-Lean Node.js + Express API for **hasil pelayanan KB** (family planning service results), looking up Postgres materialized view `sigabaru.mv_bnba_akseptor_2026` in database `BKKBN` by NIK. Response is a single flat snake_case object from the latest layanan row. SIGA (`BKKBN_SIGA` → `sigabaru."dat_PelayananKBDetil"`) enriches `nama_pasangan` (`NamaSuami`) and `tanggal_cabut_lepas` (`TanggalJatuhTempo`). Empty/missing → `"-"`.
+Lean Node.js + Express API for **hasil pelayanan KB** (family planning service results), looking up Postgres materialized view `sigabaru.mv_bnba_akseptor_2026` in database `BKKBN` by NIK. Response is a single flat snake_case object from the latest layanan row. SIGA (`BKKBN_SIGA` → `sigabaru."dat_PelayananKBDetil"`) enriches `nama_pasangan` (`NamaSuami`) and `tanggal_cabut_lepas` (`TanggalJatuhTempo`). Empty/missing fields → `"-"`; empty/missing `tanggal_cabut_lepas` → `"0000-00-00"`.
 
 Protected with API key. Call `/api/kb/*` with header `X-API-Key` matching env `API_KEY`. `GET /health` and `GET /api/docs` stay public. JWT login (`POST /api/auth/login`) is removed.
 
@@ -57,7 +57,7 @@ All secrets live in `.env` (see `.env.example`). Do not put secrets in source or
 
 `.gitignore` excludes `.env`. Set a real `API_KEY` only in local `.env` / secrets — never commit it.
 
-If `SIGA_DB_*` is missing or the SIGA query fails, the API still returns the MV response with `nama_pasangan` / `tanggal_cabut_lepas` as `"-"` (error logged server-side; no 5xx).
+If `SIGA_DB_*` is missing or the SIGA query fails, the API still returns the MV response with `nama_pasangan` as `"-"` and `tanggal_cabut_lepas` as `"0000-00-00"` (error logged server-side; no 5xx).
 
 Legacy JWT vars (`JWT_SECRET`, `JWT_EXPIRES_IN`, `AUTH_USERNAME`, `AUTH_PASSWORD`) are unused and appear commented in `.env.example` for reference only.
 
@@ -75,7 +75,7 @@ Liveness + DB ping (public). Returns `200` with `{ status: "ok", db: "up" }` or 
 
 Requires header `X-API-Key: <API_KEY>`.
 
-Returns one flat snake_case object (`nik` + fields) from the latest layanan row for the NIK. Empty/missing fields are `"-"`.
+Returns one flat snake_case object (`nik` + fields) from the latest layanan row for the NIK. Empty/missing fields are `"-"`; empty/missing `tanggal_cabut_lepas` is `"0000-00-00"`.
 
 Also accepts query form: `GET /api/kb/akseptor?nik=...`
 
@@ -113,7 +113,7 @@ Example `200` KB body:
   "asuransi": "BPJS Kesehatan",
   "metode_kontrasepsi": "-",
   "tanggal_pemakaian": "2026-09-29",
-  "tanggal_cabut_lepas": "-"
+  "tanggal_cabut_lepas": "0000-00-00"
 }
 ```
 
@@ -191,7 +191,7 @@ ConfigMap holds non-secrets (`PORT`, `DB_PORT`, `DB_NAME`, `APP_NAME`, `SIGA_DB_
 ## Notes
 
 - No DB host/user/password or API key is hardcoded; configure them only in `.env` or OpenShift Secret.
-- Date fields (`tanggal_lahir`, `tanggal_pemakaian`, `tanggal_cabut_lepas`) are `YYYY-MM-DD` or `"-"`. Source values may be `Date` (pg), `D/M/YYYY`, or ISO.
+- Date fields `tanggal_lahir` / `tanggal_pemakaian` are `YYYY-MM-DD` or `"-"`. `tanggal_cabut_lepas` is `YYYY-MM-DD` or `"0000-00-00"` when empty/missing. Source values may be `Date` (pg), `D/M/YYYY`, or ISO.
 - Sorting: parse `tanggalkb` (same forms as above); if parse fails, fall back to `Tahun` + `Bulan`. Newest first.
 - SIGA uses a separate `pg` Pool (`SIGA_DB_*`). Query parent partition table only; Postgres routes to shards.
-- All empty/missing string fields are `"-"`.
+- Empty/missing string fields are `"-"` except `tanggal_cabut_lepas` → `"0000-00-00"`.

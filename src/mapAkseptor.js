@@ -1,6 +1,7 @@
 /**
  * Map MV rows → one flat snake_case object (latest layanan for NIK).
  * Empty / missing values → "-". Dates → YYYY-MM-DD or "-".
+ * Exception: tanggal_cabut_lepas empty/missing → "0000-00-00".
  */
 
 function col(row, ...names) {
@@ -85,6 +86,11 @@ function dashDate(raw) {
   return dash(formatDateYmd(raw));
 }
 
+/** Empty / missing / unparseable → "0000-00-00" (tanggal_cabut_lepas only). */
+function zeroDate(raw) {
+  return formatDateYmd(raw) || '0000-00-00';
+}
+
 /** Parse date-like value → UTC midnight timestamp ms, or null. */
 function parseTanggalKb(raw) {
   const ymd = formatDateYmd(raw);
@@ -162,7 +168,7 @@ function mapDataRow(row, siga = {}, nik = '') {
     asuransi: dash(col(row, 'penggunaanasuransi')),
     metode_kontrasepsi: metodeKontrasepsi(row),
     tanggal_pemakaian: dashDate(col(row, 'tanggalkb')),
-    tanggal_cabut_lepas: dashDate(siga.tanggalCabutLepas),
+    tanggal_cabut_lepas: zeroDate(siga.tanggalCabutLepas),
   };
 }
 
@@ -188,5 +194,7 @@ module.exports = {
   parseTanggalKb,
   formatDateYmd,
   dash,
+  dashDate,
+  zeroDate,
   col,
 };

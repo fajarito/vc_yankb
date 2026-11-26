@@ -32,7 +32,7 @@ if (!missing) {
   });
 } else {
   console.warn(
-    '[siga-db] pool not created; nama_pasangan / tanggal_cabut_lepas will be "-"'
+    '[siga-db] pool not created; nama_pasangan will be "-", tanggal_cabut_lepas will be "0000-00-00"'
   );
 }
 
