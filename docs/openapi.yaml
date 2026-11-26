@@ -345,11 +345,10 @@ components:
           nullable: true
         namaPasangan:
           type: string
-          nullable: true
           description: |
             Spouse name from `BKKBN_SIGA` → `sigabaru."dat_PelayananKBDetil"."NamaSuami"`
-            (latest non-empty by `"Tanggal"` then `"Created"`). `null` if missing or
-            SIGA DB unavailable; never fails the whole request.
+            (latest non-empty by `"Tanggal"` then `"Created"`). Returns `"-"` if missing,
+            empty, or SIGA DB unavailable; never fails the whole request.
           example: MUHAMMAD RAFIL
         tanggalLahir:
           type: string

@@ -98,10 +98,17 @@ function sortRowsNewestFirst(rows) {
   return [...rows].sort((a, b) => sortKey(b) - sortKey(a));
 }
 
+/** Empty / missing / SIGA-fail → "-" (never null). */
+function normalizeNamaPasangan(value) {
+  if (value == null) return '-';
+  const trimmed = String(value).trim();
+  return trimmed || '-';
+}
+
 function mapPribadi(row, namaPasangan = null) {
   return {
     nama: col(row, 'NamaPesertaKB'),
-    namaPasangan: namaPasangan ?? null,
+    namaPasangan: normalizeNamaPasangan(namaPasangan),
     tanggalLahir: formatDateYmd(col(row, 'tanggal_lahir')),
     stsKawin: col(row, 'sts_kawin'),
     hubunganDenganKk: col(row, 'hubungan_dengan_kk'),
@@ -149,7 +156,7 @@ function mapLayanan(row) {
 /**
  * @param {string} nik
  * @param {object[]} rows — raw MV rows for one NIK
- * @param {string|null} [namaPasangan] — from BKKBN_SIGA dat_PelayananKBDetil.NamaSuami
+ * @param {string|null} [namaPasangan] — from BKKBN_SIGA; empty/missing → "-"
  */
 function mapAkseptorResponse(nik, rows, namaPasangan = null) {
   const sorted = sortRowsNewestFirst(rows);

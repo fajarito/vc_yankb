@@ -32,7 +32,7 @@ if (!missing) {
   });
 } else {
   console.warn(
-    '[siga-db] pool not created; pribadi.namaPasangan will be null'
+    '[siga-db] pool not created; pribadi.namaPasangan will be "-"'
   );
 }
 

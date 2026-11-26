@@ -57,7 +57,7 @@ All secrets live in `.env` (see `.env.example`). Do not put secrets in source or
 
 `.gitignore` excludes `.env`. Set a real `API_KEY` only in local `.env` / secrets — never commit it.
 
-If `SIGA_DB_*` is missing or the SIGA query fails, the API still returns the MV response with `pribadi.namaPasangan: null` (error logged server-side; no 5xx).
+If `SIGA_DB_*` is missing or the SIGA query fails, the API still returns the MV response with `pribadi.namaPasangan: "-"` (error logged server-side; no 5xx).
 
 Legacy JWT vars (`JWT_SECRET`, `JWT_EXPIRES_IN`, `AUTH_USERNAME`, `AUTH_PASSWORD`) are unused and appear commented in `.env.example` for reference only.
 
