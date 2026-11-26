@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { attachPoolErrorHandler } = require('./poolError');
 
 const TABLE = 'sigabaru."dat_PelayananKBDetil"';
 
@@ -27,12 +28,10 @@ if (!missing) {
     connectionTimeoutMillis: 10_000,
   });
 
-  pool.on('error', (err) => {
-    console.error('[siga-db] unexpected pool error', err.message);
-  });
+  attachPoolErrorHandler(pool, 'siga-db');
 } else {
   console.warn(
-    '[siga-db] pool not created; nama_pasangan will be "-", tanggal_cabut_lepas will be "0000-00-00"'
+    '[siga-db] pool not created; nama_pasangan will be "-", tanggal_cabut_lepas will be null'
   );
 }
 
@@ -48,12 +47,14 @@ function trimOrNull(value) {
  *
  * - namaPasangan: latest non-empty NamaSuami (Tanggal desc, Created desc)
  * - tanggalCabutLepas: latest non-null TanggalJatuhTempo (same order)
+ * - status: `ok` | `fail` | `skip` (no pool / missing env)
+ * - error: short reason when status is `fail`
  *
  * @param {string} nik
- * @returns {Promise<{ namaPasangan: string|null, tanggalCabutLepas: * }>}
+ * @returns {Promise<{ namaPasangan: string|null, tanggalCabutLepas: *, status: 'ok'|'fail'|'skip', error?: string }>}
  */
 async function findSigaEnrichment(nik) {
-  const empty = { namaPasangan: null, tanggalCabutLepas: null };
+  const empty = { namaPasangan: null, tanggalCabutLepas: null, status: 'skip' };
   if (!pool) return empty;
 
   const sql = `
@@ -78,10 +79,15 @@ async function findSigaEnrichment(nik) {
       }
       if (namaPasangan != null && tanggalCabutLepas != null) break;
     }
-    return { namaPasangan, tanggalCabutLepas };
+    return { namaPasangan, tanggalCabutLepas, status: 'ok' };
   } catch (err) {
-    console.error('[siga-db] enrichment query failed', err.message);
-    return empty;
+    const message = err && err.message ? String(err.message) : 'unknown error';
+    return {
+      namaPasangan: null,
+      tanggalCabutLepas: null,
+      status: 'fail',
+      error: message,
+    };
   }
 }
 

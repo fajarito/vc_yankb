@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Yan KB API
-  version: 1.4.0
+  version: 1.5.0
   description: |
     Lean Express API for hasil pelayanan KB (family planning service results)
     by NIK from Postgres MV `sigabaru.mv_bnba_akseptor_2026`.
@@ -9,7 +9,7 @@ info:
     Response is a single flat snake_case object for the latest layanan row.
     SIGA (`BKKBN_SIGA`) enriches `nama_pasangan` (`NamaSuami`) and
     `tanggal_cabut_lepas` (`TanggalJatuhTempo`). Empty/missing values are `"-"`;
-    empty/missing `tanggal_cabut_lepas` is `"0000-00-00"`.
+    empty/missing `tanggal_cabut_lepas` is JSON `null` (not `"0000-00-00"` or `"-"`).
     `jenis_kelamin` is derived from NIK digits 7–8: 01–31 → `Laki-laki`,
     41–71 → `Perempuan`, else `"-"`.
     If `nama_pasangan` equals `nama_lengkap` (trim, case-insensitive) → `"-"`.
@@ -225,7 +225,7 @@ components:
         asuransi: BPJS Kesehatan
         metode_kontrasepsi: '-'
         tanggal_pemakaian: '2026-09-29'
-        tanggal_cabut_lepas: '0000-00-00'
+        tanggal_cabut_lepas: null
 
   schemas:
     HealthOk:
@@ -322,7 +322,9 @@ components:
           example: '2026-09-29'
         tanggal_cabut_lepas:
           type: string
+          nullable: true
           description: |
             From SIGA `TanggalJatuhTempo` (latest non-null for NIK) as
-            `YYYY-MM-DD`, or `"0000-00-00"` when empty/missing/SIGA fail.
-          example: '0000-00-00'
+            `YYYY-MM-DD`, or JSON `null` when empty/missing/unparseable/SIGA fail
+            (never `"0000-00-00"` or `"-"`).
+          example: null
